@@ -1,0 +1,65 @@
+name: "Esplora fonti satellite"
+# Prova tecnica: elenca i prodotti del servizio EUMETView (EUMETSAT) e scarica un esempio di ognuno sul Lazio.
+# Parte da sola quando questo file viene modificato; il risultato va nel ramo "esplora".
+on:
+  push:
+    paths: [".github/workflows/esplora.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  esplora:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Elenco dei prodotti ed esempi
+        run: |
+          mkdir -p /home/runner/e/esempi && cd /home/runner/e
+          W="https://view.eumetsat.int/geoserver/wms"
+          curl -sS -m 120 "$W?service=WMS&version=1.3.0&request=GetCapabilities" -o capacita.xml || true
+          ls -l capacita.xml
+          python3 - <<'EOF'
+          import xml.etree.ElementTree as ET, json, re
+          ns = {"w": "http://www.opengis.net/wms"}
+          t = ET.parse("capacita.xml")
+          out = []
+          for l in t.getroot().iter("{http://www.opengis.net/wms}Layer"):
+              n = l.find("w:Name", ns)
+              if n is None: continue
+              nome = n.text
+              if not re.match(r"^(mtg|msg_rss|msg_fes|msg_iodc)", nome or ""): continue
+              tit = (l.findtext("w:Title", "", ns) or "").strip()
+              dim = l.find("w:Dimension", ns)
+              tempo = (dim.text or "").strip() if dim is not None else ""
+              stili = [s.findtext("w:Name", "", ns) for s in l.findall("w:Style", ns)]
+              out.append({"nome": nome, "titolo": tit, "default_tempo": dim.get("default") if dim is not None else None,
+                          "tempo_fine": tempo[-80:], "stili": stili})
+          json.dump(out, open("strati.json", "w"), indent=1)
+          open("strati_nomi.txt", "w").write("\n".join(x["nome"] for x in out if x["nome"].startswith("mtg")))
+          print(len(out), "strati")
+          for x in out: print(x["nome"], "|", x["titolo"], "|", x["default_tempo"])
+          EOF
+          date -u > ora_esplorazione.txt
+          # un esempio di ogni strato MTG sul Lazio (2000 pixel di larghezza)
+          while read -r L; do
+            f="esempi/$(echo "$L" | tr ':' '_').png"
+            curl -sS -m 90 -o "$f" -w "$L %{http_code} %{size_download}\n" \
+              "$W?service=WMS&version=1.3.0&request=GetMap&layers=$L&styles=&crs=EPSG:4326&bbox=41.05,11.30,43.20,14.25&width=2000&height=1460&format=image/png" \
+              >> esempi/esiti.txt || echo "$L errore" >> esempi/esiti.txt
+          done < strati_nomi.txt
+          cat esempi/esiti.txt
+          du -sh esempi
+
+      - name: Pubblico nel ramo "esplora"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd /home/runner/e
+          git init -q -b esplora
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Esplorazione EUMETView"
+          git push -q -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" esplora
