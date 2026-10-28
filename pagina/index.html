@@ -51,8 +51,8 @@
   .legenda div.c { flex: 1; text-align: left; }
   .legenda div.c i { display: block; height: 12px; margin-right: 1px; }
   .legenda-ir { display: none; margin-top: 10px; font-size: .78rem; color: var(--muto); }
-  .legenda-ir .scala { height: 12px; border-radius: 3px; margin: 4px 0;
-     background: linear-gradient(90deg, #0a0a0a 0%, #9a9a9a 40%, #ebebeb 55%, #338cff 62%, #1acc4d 70%, #ffe61a 78%, #ff5a0d 86%, #d90099 93%, #ffffff 100%); }
+  .legenda-ir .scala { height: 12px; border-radius: 3px; margin: 4px 0; }
+  #sat-prodotti button { font-size: .85rem; padding: 5px 11px; }
   .legenda-ir .eti { display: flex; justify-content: space-between; }
   aside h2 { font-size: .78rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muto); margin: 0 0 8px; }
   aside .card + .card { margin-top: 12px; }
@@ -89,6 +89,7 @@
         <button data-zona="lazio" aria-pressed="true">Lazio</button>
         <button data-zona="sabina" aria-pressed="false">Sabina</button>
       </div>
+      <div class="schede" id="sat-prodotti" role="group" aria-label="Tipo di immagine satellitare" style="display:none"></div>
       <div class="testa-mappa">
         <div><strong id="ora">--</strong><span id="giorno">--</span></div>
         <span class="chip" id="stato">--</span>
@@ -110,11 +111,7 @@
         </div>
       </div>
       <div class="legenda" id="legenda"></div>
-      <div class="legenda-ir" id="legenda-ir">
-        Infrarosso (temperatura delle nubi): suolo e nubi basse scuri, nubi alte chiare, cime dei temporali colorate
-        <div class="scala"></div>
-        <div class="eti"><span>+35 °C</span><span>0 °C</span><span>-40 °C</span><span>-60 °C</span><span>-80 °C</span></div>
-      </div>
+      <div class="legenda-ir" id="legenda-ir"></div>
     </section>
     <aside>
       <div class="card">
@@ -141,13 +138,20 @@
   </div>
 </main>
 <footer>
-  Radar e satellite: Dipartimento della Protezione Civile, piattaforma Radar-DPC (dati elaborati). Modello: WRF su dati ECMWF IFS open data (CC BY 4.0).
+  Radar: Dipartimento della Protezione Civile, piattaforma Radar-DPC (dati elaborati). Satellite: contains modified EUMETSAT Meteosat (MTG) data, EUMETView (CC BY 4.0). Modello: WRF su dati ECMWF IFS open data (CC BY 4.0).
   Rilievo: Terrain Tiles (SRTM/GMTED) · Confini: ISTAT, Natural Earth · Nomi: GeoNames. Non usare per decisioni di sicurezza:
   per le allerte fanno fede i bollettini ufficiali della Protezione Civile.
 </footer>
 <script>
 (function () {
-  const stato = { indice: null, pagella: null, prodotto: "pioggia", zona: "lazio", fotogrammi: [], i: 0, gioca: false, timer: null, versione: "" };
+  const stato = { indice: null, sat: null, pagella: null, prodotto: "pioggia", satProdotto: "sandwich", zona: "lazio", fotogrammi: [], i: 0, gioca: false, timer: null, versione: "" };
+  const LEGENDE_SAT = {
+    sandwich: "Nubi basse <b style='color:#c9b400'>gialle</b>, nubi alte e spesse <b>bianche</b>, veli di nubi alte <b style='color:#6b7fd6'>azzurri</b>, terra e mare blu scuro. Sopra: pioggia del radar (stessi colori della mappa radar) e fulmini. Di notte solo infrarosso.",
+    visibile: "Visibile ad alta definizione (0,6 µm, pixel di 500 m): come una fotografia in bianco e nero. Di notte passa da solo all'infrarosso.",
+    colori: "Colori reali di giorno; di notte nubi in grigio-azzurro e luci delle città.",
+    infrarosso: "Infrarosso (10,5 µm): più una nube è bianca, più è fredda, cioè più è alta. Funziona anche di notte.",
+    topnubi: "<div class='scala' style='background:linear-gradient(90deg,#3a3a3a 0%,#bdbdbd 38%,#8cccff 46%,#2673f2 54%,#0db340 62%,#fbeb1a 70%,#ff8000 78%,#d9001a 86%,#bf00bf 93%,#ffffff 100%)'></div><div class='eti'><span>+30 °C</span><span>-30</span><span>-40</span><span>-50</span><span>-58</span><span>-64</span><span>-70</span><span>-75</span><span>-82 °C</span></div>Temperatura della cima delle nubi (tarata ogni volta con l'infrarosso della Protezione Civile): sotto -50 °C ci sono nubi temporalesche molto alte. Con i fulmini."
+  };
   const $ = (id) => document.getElementById(id);
   const GIORNI = ["domenica", "lunedì", "martedì", "mercoledì", "giovedì", "venerdì", "sabato"];
   const PUNTI = ["nord", "nord-nord-est", "nord-est", "est-nord-est", "est", "est-sud-est", "sud-est", "sud-sud-est",
@@ -173,12 +177,19 @@
       $("l-fondo").style.display = "";
       $("l-fondo").src = url(base + "fondo.png");
       $("legenda").style.display = "flex"; $("legenda-ir").style.display = "none";
+      $("l-confini").src = url(base + "confini.png");
+      $("sat-prodotti").style.display = "none";
     } else {
-      stato.fotogrammi = z.satellite.map((f) => ({ src: base + f.file, ora: f.ora, tipo: "sat" }));
+      const zs = stato.sat && stato.sat.zone[stato.zona];
+      const elenco = (zs && zs[stato.satProdotto]) || [];
+      stato.fotogrammi = elenco.map((f) => ({ src: base + f.file, ora: f.ora, tipo: "sat" }));
       $("l-fondo").style.display = "none";
       $("legenda").style.display = "none"; $("legenda-ir").style.display = "block";
+      $("legenda-ir").innerHTML = LEGENDE_SAT[stato.satProdotto] || "";
+      $("l-confini").src = url(base + "confini_scuro.png");
+      $("sat-prodotti").style.display = "flex";
+      if (!elenco.length) { $("l-dati").removeAttribute("src"); $("ora").textContent = "immagini satellitari non ancora disponibili"; $("giorno").textContent = ""; }
     }
-    $("l-confini").src = url(base + "confini.png");
     $("palco").style.aspectRatio = z.larghezza + " / " + z.altezza;
     stato.fotogrammi.forEach((f) => precarica(url(f.src)));
     const cur = $("cursore");
@@ -245,6 +256,15 @@
     }, 450);
   }
 
+  function bottoniSat() {
+    const B = $("sat-prodotti"); if (B.childElementCount || !stato.sat) return;
+    stato.sat.prodotti.forEach(([chiave, nome]) => {
+      const b = document.createElement("button"); b.textContent = nome; b.setAttribute("aria-pressed", chiave === stato.satProdotto);
+      b.addEventListener("click", () => { [...B.children].forEach((x) => x.setAttribute("aria-pressed", x === b)); stato.satProdotto = chiave; costruisci(); });
+      B.appendChild(b);
+    });
+  }
+
   function legenda() {
     const L = $("legenda"); L.innerHTML = '<span class="tit">mm/h</span>';
     stato.indice.colori.forEach((c, k) => {
@@ -273,7 +293,7 @@
     } else righe.push(["WRF", w.motivo || "non disponibile, solo radar"]);
     $("situazione").innerHTML = righe.map((r) => "<dt>" + r[0] + "</dt><dd>" + r[1] + "</dd>").join("");
     const agg = data(stato.indice.aggiornato);
-    $("aggiornato").textContent = "aggiornato alle " + ora(agg) + " · si aggiorna ogni 15 minuti circa";
+    $("aggiornato").textContent = "aggiornato alle " + ora(agg) + " · si aggiorna ogni 10 minuti";
   }
 
   function pagella() {
@@ -297,6 +317,7 @@
       if (!prima && stato.indice && ind.aggiornato === stato.indice.aggiornato) return;
       stato.indice = ind; stato.versione = ind.aggiornato;
       try { const p = await fetch("pagella.json?t=" + Date.now(), { cache: "no-store" }); if (p.ok) stato.pagella = await p.json(); } catch (e) {}
+      try { const q = await fetch("satellite.json?t=" + Date.now(), { cache: "no-store" }); if (q.ok) { stato.sat = await q.json(); bottoniSat(); } } catch (e) {}
       $("errore").style.display = "none";
       legenda(); situazione(); pagella(); costruisci();
     } catch (e) {

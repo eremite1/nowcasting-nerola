@@ -5,8 +5,9 @@ li ritaglia sull'Italia centrale e li salva in file piccoli per i passi successi
   scarica.py --out CARTELLA [--ore-radar 2] [--ore-satellite 3]
 
 Scrive:
-  radar.pkl      pioggia (mm/h) ogni 10 minuti, ultime 2 ore, piu' la griglia
-  satellite.pkl  infrarosso, ultime 3 ore (se disponibile)
+  radar.pkl      pioggia (mm/h) ogni 5 minuti, ultime 2 ore, piu' la griglia
+  satellite.pkl  infrarosso della Protezione Civile (gradi C), ogni 5 minuti, ultime 2,5 ore: non viene disegnato,
+                 serve solo a tarare in temperatura le immagini infrarosse ad alta definizione di EUMETSAT (satellite.py)
   diagnosi.json  cosa e' stato trovato (utile per controllare se qualcosa non va)
 """
 import argparse
@@ -26,7 +27,7 @@ import geo
 # Riquadro del radar tenuto per il calcolo (lon_min, lon_max, lat_min, lat_max): molto piu' largo del Lazio, perche'
 # in 6 ore la pioggia puo' arrivare da 300 km e oltre (mare Tirreno, Toscana, Campania, Adriatico).
 RIQUADRO_RADAR = (8.3, 17.2, 38.8, 45.4)
-# Riquadro del satellite (serve solo da vedere)
+# Riquadro del satellite (serve per la taratura delle temperature)
 RIQUADRO_SAT = (10.4, 15.2, 40.3, 43.9)
 
 
@@ -91,14 +92,14 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--out", required=True)
     ap.add_argument("--ore-radar", type=float, default=2.0)
-    ap.add_argument("--ore-satellite", type=float, default=3.0)
+    ap.add_argument("--ore-satellite", type=float, default=2.5)
     a = ap.parse_args()
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
     diagnosi = {"ora_scarico": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")}
     inizio = time.time()
     try:
-        radar = serie("SRI", a.ore_radar, 10, RIQUADRO_RADAR, diagnosi)
+        radar = serie("SRI", a.ore_radar, 5, RIQUADRO_RADAR, diagnosi)
         with open(out / "radar.pkl", "wb") as f:
             pickle.dump(radar, f)
     except Exception as e:  # noqa: BLE001
@@ -106,7 +107,7 @@ def main():
         (out / "diagnosi.json").write_text(json.dumps(diagnosi, indent=1, default=str))
         sys.exit(f"ERRORE radar: {e}")
     try:
-        sat = serie("IR_108", a.ore_satellite, 15, RIQUADRO_SAT, diagnosi)
+        sat = serie("IR_108", a.ore_satellite, 5, RIQUADRO_SAT, diagnosi)
         with open(out / "satellite.pkl", "wb") as f:
             pickle.dump(sat, f)
     except Exception as e:  # noqa: BLE001

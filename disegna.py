@@ -247,15 +247,19 @@ def candidati(zona, sf):
     return elenco
 
 
-def confini(zona, sf, percorso, massimo=40):
+def confini(zona, sf, percorso, massimo=40, scuro=False):
+    """Confini e nomi trasparenti. scuro=True: linee e scritte chiare, da mettere sopra le immagini del satellite."""
     fig, ax = figura(zona)
     fig.patch.set_alpha(0)
-    stili = [("comuni", dict(colors="#3d3d3d", linewidths=0.35, alpha=0.45)) if zona.dettaglio else None,
-             ("province", dict(colors="#1a1a1a", linewidths=0.9, linestyles=(0, (5, 3)), alpha=0.85)),
-             ("regioni", dict(colors="#1a1a1a", linewidths=1.5, alpha=0.9)),
-             ("laghi", dict(colors="#2a6cc7", linewidths=0.8)),
-             ("fiumi", dict(colors="#2a6cc7", linewidths=0.7, alpha=0.8)),
-             ("costa", dict(colors="#1a1a1a", linewidths=1.0))]
+    linea = "#f2f2f2" if scuro else "#1a1a1a"
+    acqua = "#8cc8ff" if scuro else "#2a6cc7"
+    stili = [("comuni", dict(colors="#d0d0d0" if scuro else "#3d3d3d", linewidths=0.35, alpha=0.35 if scuro else 0.45))
+             if zona.dettaglio else None,
+             ("province", dict(colors=linea, linewidths=0.9, linestyles=(0, (5, 3)), alpha=0.85)),
+             ("regioni", dict(colors=linea, linewidths=1.5, alpha=0.9)),
+             ("laghi", dict(colors=acqua, linewidths=0.8)),
+             ("fiumi", dict(colors=acqua, linewidths=0.7, alpha=0.6 if scuro else 0.8)),
+             ("costa", dict(colors=linea, linewidths=1.0))]
     for s in stili:
         if s and sf.get(s[0]):
             ax.add_collection(LineCollection(linee_px(zona, sf[s[0]]), zorder=3, **s[1]))
@@ -284,10 +288,11 @@ def confini(zona, sf, percorso, massimo=40):
         dx, dy, ha, va, box = posto
         occupati.append(box)
         occupati.append((x - 5, y - 5, x + 5, y + 5))
-        ax.plot([x], [y], marker="*" if grande else "o", color="#d6341f" if grande else "#111111",
-                markersize=15 if grande else 4.5, markeredgecolor="white", markeredgewidth=0.8, zorder=5)
-        t = ax.text(x + dx, y + dy, nome, ha=ha, va=va, fontsize=fs * 0.75, fontweight="bold", color="#111111", zorder=6)
-        t.set_path_effects([pe.withStroke(linewidth=2.6, foreground="white")])
+        ax.plot([x], [y], marker="*" if grande else "o", color="#d6341f" if grande else ("#ffffff" if scuro else "#111111"),
+                markersize=15 if grande else 4.5, markeredgecolor="#111111" if scuro else "white", markeredgewidth=0.8, zorder=5)
+        t = ax.text(x + dx, y + dy, nome, ha=ha, va=va, fontsize=fs * 0.75, fontweight="bold",
+                    color="#ffffff" if scuro else "#111111", zorder=6)
+        t.set_path_effects([pe.withStroke(linewidth=2.6, foreground="#111111" if scuro else "white")])
         scritti += 1
     ax.text(zona.W - 8, zona.H - 8, "www.meteonerola.it", ha="right", va="bottom", fontsize=10, fontweight="bold", color="#111111",
             zorder=7, bbox=dict(boxstyle="round,pad=0.3", facecolor="white", edgecolor="#333333", linewidth=0.8, alpha=0.9))
@@ -357,10 +362,6 @@ def main():
         radar = pickle.load(f)
     with open(a.nowcast, "rb") as f:
         nc = pickle.load(f)
-    sat = None
-    if Path(f"{a.dati}/satellite.pkl").exists():
-        with open(f"{a.dati}/satellite.pkl", "rb") as f:
-            sat = pickle.load(f)
     sf = sfondo_mod.carica(a.sfondo) if a.sfondo else sfondo_mod.carica("/inesistente")
     dem = sfondo_mod.carica_dem(a.sfondo) if a.sfondo else {}
     diagnosi = {}
@@ -370,12 +371,13 @@ def main():
     for chiave, cfg in AREE.items():
         z = Zona(chiave, cfg)
         cart = out / chiave
-        for sotto in ("radar", "previsione", "satellite"):
+        for sotto in ("radar", "previsione"):
             (cart / sotto).mkdir(parents=True, exist_ok=True)
         fondo(z, dem, cart / "fondo.png")
         confini(z, sf, cart / "confini.png", massimo=45 if z.dettaglio else 20)
+        confini(z, sf, cart / "confini_scuro.png", massimo=45 if z.dettaglio else 20, scuro=True)
         voce = {"nome": z.nome, "larghezza": z.W, "altezza": z.H, "riquadro": [z.lon0, z.lon1, z.lat0, z.lat1],
-                "radar": [], "previsione": [], "satellite": []}
+                "radar": [], "previsione": []}
         mappa = z.mappa_da(radar["griglia"])
         for t, campo in zip(radar["tempi"], radar["campi"]):
             if t > t0:
@@ -390,22 +392,13 @@ def main():
             f = nome_file(t)
             salva_pioggia(ricampiona(campo, mappa_nc), cart / "previsione" / f)
             voce["previsione"].append({"file": f"previsione/{f}", "ora": t, "minuti": k * 10, "peso_radar": nc["pesi"][k]})
-        if sat is not None:
-            mappa_s = z.mappa_da(sat["griglia"])
-            for t, campo in zip(sat["tempi"], sat["campi"]):
-                tk = a_kelvin(ricampiona(ammorbidisci(campo, 1.8), mappa_s), diagnosi)
-                f = nome_file(t)
-                Image.fromarray(colori_ir(tk), "RGB").quantize(256, method=Image.Quantize.FASTOCTREE, dither=Image.Dither.NONE) \
-                    .save(cart / "satellite" / f, optimize=True)
-                voce["satellite"].append({"file": f"satellite/{f}", "ora": t})
         ultimo = voce["radar"][-1] if voce["radar"] else None
         loc = ora_locale(t0)
         gg = ["lunedi'", "martedi'", "mercoledi'", "giovedi'", "venerdi'", "sabato", "domenica"][loc.weekday()]
         composito(cart, cart / ultimo["file"] if ultimo else None, f"Radar pioggia - {z.nome}",
                   f"{gg} {loc:%d/%m} ore {loc:%H:%M} (ora italiana)", cart / "ultimo.png")
         indice["zone"][chiave] = voce
-        print(f"{z.nome}: {z.W}x{z.H} px, radar {len(voce['radar'])}, previsione {len(voce['previsione'])}, "
-              f"satellite {len(voce['satellite'])}")
+        print(f"{z.nome}: {z.W}x{z.H} px, radar {len(voce['radar'])}, previsione {len(voce['previsione'])}")
     indice["diagnosi_disegno"] = diagnosi
     (out / "indice.json").write_text(json.dumps(indice, ensure_ascii=False, separators=(",", ":")))
 
