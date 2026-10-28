@@ -62,6 +62,8 @@ def serie(tipo, ore, passo_min, riquadro, diagnosi):
             print(f"  {tipo} {iso(ms)}: file non leggibile ({e})", file=sys.stderr)
             diagnosi.setdefault("errori", []).append(f"{tipo} {iso(ms)}: {e}")
             continue
+        if tipo == "SRI":
+            a[a < 0] = np.nan      # il radar scrive -9999 dove non vede (fuori copertura): e' "nessun dato", non "zero"
         if griglia is None:
             griglia = g
             ritaglio = g.riquadro_indici(*riquadro)

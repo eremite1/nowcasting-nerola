@@ -97,6 +97,16 @@ def ricampiona(campo, mappa, lineare=True):
     return v
 
 
+def ammorbidisci(campo, sigma):
+    """Il satellite ha pixel di 4-5 km ripetuti sulla griglia di 1 km (quadrettoni): una leggera sfumatura li toglie."""
+    from scipy import ndimage
+    a = np.asarray(campo, dtype="float64")
+    noto = np.isfinite(a).astype("float64")
+    num = ndimage.gaussian_filter(np.nan_to_num(a), sigma)
+    den = ndimage.gaussian_filter(noto, sigma)
+    return np.where(den > 0.3, num / np.maximum(den, 1e-9), np.nan)
+
+
 # ------------------------------------------------------------------------------------------ livelli trasparenti
 
 def tavolozza_pioggia():
@@ -383,7 +393,7 @@ def main():
         if sat is not None:
             mappa_s = z.mappa_da(sat["griglia"])
             for t, campo in zip(sat["tempi"], sat["campi"]):
-                tk = a_kelvin(ricampiona(campo, mappa_s), diagnosi)
+                tk = a_kelvin(ricampiona(ammorbidisci(campo, 1.8), mappa_s), diagnosi)
                 f = nome_file(t)
                 Image.fromarray(colori_ir(tk), "RGB").quantize(256, method=Image.Quantize.FASTOCTREE, dither=Image.Dither.NONE) \
                     .save(cart / "satellite" / f, optimize=True)
