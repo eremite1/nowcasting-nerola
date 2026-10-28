@@ -64,6 +64,8 @@ STRATI = {
 }
 PRODOTTI = [("sandwich", "Radar + satellite"), ("visibile", "Visibile HD"), ("colori", "Colori reali"),
             ("infrarosso", "Infrarosso"), ("topnubi", "Top nubi")]
+# cambiando VERSIONE tutte le immagini vengono ridisegnate (serve quando cambia lo stile)
+VERSIONE = "v2"
 TARATURA_DEFAULT = [40.0 - g * 110.0 / 255.0 for g in range(256)]   # usata solo se non c'e' mai stata una taratura
 
 
@@ -397,7 +399,7 @@ def main():
         voce = {p: [] for p, _ in PRODOTTI}
         fatti = 0
         for t in istanti:
-            nomi = {p: f"{p}_{t:%Y%m%d_%H%M}.jpg" for p, _ in PRODOTTI}
+            nomi = {p: f"{p}_{VERSIONE}_{t:%Y%m%d_%H%M}.jpg" for p, _ in PRODOTTI}
             # il radar dello stesso istante deve esserci per il "sandwich", altrimenti lo si rifara' al prossimo giro
             r = tempi_radar.get(t)
             gia = prec and all((prec / chiave / "sat" / n).exists() for n in nomi.values()) \
