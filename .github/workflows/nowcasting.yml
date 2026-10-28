@@ -88,6 +88,8 @@ jobs:
           INIZIO=$(date +%s)
           WRF_SHA=""
           while [ $(( ($(date +%s) - INIZIO) / 60 )) -lt "$MINUTI_DI_LAVORO" ]; do
+            # se nel frattempo il programma e' stato migliorato, si usa subito la versione nuova
+            git -C "$GITHUB_WORKSPACE" pull -q --ff-only origin main 2>/dev/null && pip install -q -r requirements.txt >/dev/null 2>&1 || true
             # nuova previsione WRF? (si controlla ad ogni giro, si scarica solo se e' cambiata)
             S=$(git ls-remote "https://github.com/${WRF_REPO}.git" refs/heads/risultati 2>/dev/null | cut -f1 || true)
             if [ -n "$S" ] && [ "$S" != "$WRF_SHA" ]; then
