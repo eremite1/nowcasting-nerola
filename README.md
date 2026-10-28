@@ -1,7 +1,7 @@
 # nowcasting-nerola
 
 Radar, satellite e **previsione della pioggia a 0-6 ore** sul Lazio e sulla Sabina, con mappe proprie, aggiornati da soli
-ogni 15 minuti circa sui computer di GitHub. Fa parte di [meteonerola.it](https://www.meteonerola.it) insieme a
+ogni 10 minuti sui computer di GitHub. Fa parte di [meteonerola.it](https://www.meteonerola.it) insieme a
 [wrf-nerola](https://github.com/eremite1/wrf-nerola) (modello WRF) e [meteo-mappe](https://github.com/eremite1/meteo-mappe).
 
 ## Cosa fa
@@ -48,7 +48,7 @@ I dettagli scientifici (metodi e riferimenti) sono scritti all'inizio del file `
 | `sfondo.py` | confini, fiumi, nomi dei paesi e rilievo (lo stesso di wrf-nerola) |
 | `pagina/index.html` | la pagina web |
 | `prove/prova_sintetica.py` | prova di tutto il sistema con pioggia finta, senza internet |
-| `.github/workflows/nowcasting.yml` | l'automazione che fa girare tutto ogni 15 minuti |
+| `.github/workflows/nowcasting.yml` | l'automazione che fa girare tutto ogni 10 minuti |
 
 ## Fonti e licenze
 

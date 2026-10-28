@@ -230,7 +230,8 @@ def taratura(cache, disponibili, dpc, vecchia):
             continue
         g = sfuma(g, 4.0)[::4, ::4]           # alla stessa definizione (piu' grossolana) della Protezione Civile
         T = disegna.ricampiona(tempi_dpc[t], mappa)
-        m = np.isfinite(g) & np.isfinite(T)
+        # la Protezione Civile scrive +47,5 dove non ha il dato: fuori dai valori possibili per Italia e mari vicini
+        m = np.isfinite(g) & np.isfinite(T) & (T > -100) & (T < 45)
         if m.sum() < 5000:
             continue
         grigi.append(g[m])
@@ -256,7 +257,7 @@ def taratura(cache, disponibili, dpc, vecchia):
     tab = np.where(x > gq[-1], tq[-1] + (x - gq[-1]) * pend, tab)
     tab = np.clip(tab, -95, 65)
     # si mescola con la taratura precedente (piu' stabile da un giro all'altro)
-    if vecchia is not None:
+    if vecchia is not None and np.asarray(vecchia)[0] < 45:
         tab = 0.5 * tab + 0.5 * np.asarray(vecchia)
     return [round(float(v), 2) for v in tab], {"fonte": "infrarosso Protezione Civile", "coppie": usati,
                                                  "grigio_min": round(float(gq[0])), "grigio_max": round(float(gq[-1])),
@@ -361,6 +362,9 @@ def main():
         if p.exists():
             try:
                 vecchia = json.loads(p.read_text())["tabella"]
+                if vecchia[0] >= 45:      # taratura vecchia sbagliata (fatta con il +47,5 della Protezione Civile)
+                    vecchia = None
+                    continue
                 break
             except Exception:  # noqa: BLE001
                 pass
