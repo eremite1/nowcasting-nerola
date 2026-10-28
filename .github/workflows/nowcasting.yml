@@ -1,0 +1,176 @@
+name: "Nowcasting"
+run-name: "Nowcasting ${{ github.event_name == 'schedule' && 'automatico' || 'a mano' }}"
+
+# Ogni 15 minuti circa:
+# 1) scarica gli ultimi scatti del radar (pioggia) e del satellite (infrarosso) della Protezione Civile
+# 2) calcola la previsione 0-6 ore (movimento della pioggia dal radar + modello WRF di Nerola)
+# 3) confronta le previsioni delle ore scorse con il radar (pagella)
+# 4) disegna le immagini e pubblica tutto nel ramo "risultati" (che e' anche la pagina web)
+# Se qualcosa va storto, il registro degli errori viene messo nel ramo "diagnosi".
+on:
+  schedule:
+    # GitHub a volte ritarda gli avvii automatici di qualche minuto: e' normale
+    - cron: "4,19,34,49 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: nowcasting
+  cancel-in-progress: false
+
+env:
+  WRF_REPO: eremite1/wrf-nerola
+
+jobs:
+  nowcast:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Programmi necessari
+        run: pip install -q -r requirements.txt
+
+      - name: Recupero confini, nomi e rilievo (dalla cache)
+        id: cache-sfondo
+        uses: actions/cache/restore@v4
+        with:
+          path: /home/runner/sfondo
+          key: sfondo-v1
+
+      - name: Scarico confini, nomi e rilievo (solo la prima volta)
+        id: sfondo
+        if: steps.cache-sfondo.outputs.cache-hit != 'true'
+        continue-on-error: true
+        run: |
+          python sfondo.py --scarica /home/runner/sfondo
+          if [ -f /home/runner/sfondo/sfondo.json ]; then echo "completo=si" >> "$GITHUB_OUTPUT"; fi
+
+      - name: Salvo confini, nomi e rilievo nella cache
+        if: steps.sfondo.outputs.completo == 'si'
+        uses: actions/cache/save@v4
+        with:
+          path: /home/runner/sfondo
+          key: sfondo-v1
+
+      - name: Quale e' l'ultima previsione WRF pubblicata
+        id: wrf
+        continue-on-error: true
+        run: |
+          SHA=$(git ls-remote "https://github.com/${WRF_REPO}.git" refs/heads/risultati | cut -f1)
+          echo "ultima pubblicazione WRF: ${SHA:-nessuna}"
+          echo "sha=${SHA:-nessuno}" >> "$GITHUB_OUTPUT"
+
+      - name: Recupero il WRF (dalla cache)
+        id: cache-wrf
+        uses: actions/cache/restore@v4
+        with:
+          path: /home/runner/wrf
+          key: wrf-${{ steps.wrf.outputs.sha }}
+
+      - name: Scarico il WRF (solo quando ce n'e' uno nuovo)
+        id: scarico-wrf
+        if: steps.cache-wrf.outputs.cache-hit != 'true' && steps.wrf.outputs.sha != 'nessuno'
+        continue-on-error: true
+        run: |
+          mkdir -p /home/runner/wrf
+          curl -fsSL --retry 3 -o /home/runner/wrf/d01_tutto.npz \
+            "https://raw.githubusercontent.com/${WRF_REPO}/${{ steps.wrf.outputs.sha }}/d01_tutto.npz"
+          ls -lh /home/runner/wrf
+          echo "scaricato=si" >> "$GITHUB_OUTPUT"
+
+      - name: Salvo il WRF nella cache
+        if: steps.scarico-wrf.outputs.scaricato == 'si'
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: /home/runner/wrf
+          key: wrf-${{ steps.wrf.outputs.sha }}
+
+      - name: Recupero i risultati precedenti (per la pagella)
+        run: |
+          mkdir -p /home/runner/precedente
+          if git fetch -q --depth 1 origin risultati 2>/dev/null; then
+            for cosa in archivio storico.csv; do
+              git archive FETCH_HEAD "$cosa" 2>/dev/null | tar -x -C /home/runner/precedente || true
+            done
+          fi
+          ls /home/runner/precedente /home/runner/precedente/archivio 2>/dev/null | head -30 || true
+
+      - name: Scarico radar e satellite
+        run: |
+          set -o pipefail
+          python scarica.py --out /home/runner/dati 2>&1 | tee -a /home/runner/registro.txt
+
+      - name: Previsione 0-6 ore
+        run: |
+          set -o pipefail
+          WRF=""
+          if [ -f /home/runner/wrf/d01_tutto.npz ]; then WRF="--wrf /home/runner/wrf/d01_tutto.npz"; fi
+          python nowcast.py --dati /home/runner/dati $WRF --out /home/runner/nowcast.pkl 2>&1 | tee -a /home/runner/registro.txt
+
+      - name: Pagella (confronto con il radar)
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          python verifica.py --dati /home/runner/dati --nowcast /home/runner/nowcast.pkl \
+            --precedente /home/runner/precedente --out /home/runner/pubblico 2>&1 | tee -a /home/runner/registro.txt
+
+      - name: Immagini e pagina
+        run: |
+          set -o pipefail
+          python disegna.py --dati /home/runner/dati --nowcast /home/runner/nowcast.pkl --sfondo /home/runner/sfondo \
+            --out /home/runner/pubblico 2>&1 | tee -a /home/runner/registro.txt
+          cp pagina/index.html /home/runner/pubblico/index.html
+          cp /home/runner/dati/diagnosi.json /home/runner/pubblico/ || true
+          cp /home/runner/registro.txt /home/runner/pubblico/registro.txt
+          touch /home/runner/pubblico/.nojekyll
+          cat > /home/runner/pubblico/LEGGIMI.md <<'EOT'
+          # Nowcasting Nerola (risultati)
+
+          Pagina: `index.html`. Elenco delle immagini e informazioni sul calcolo: `indice.json`. Pagella: `pagella.json`, `storico.csv`.
+          Immagine pronta dell'ultimo radar: `lazio/ultimo.png`, `sabina/ultimo.png`.
+
+          Dati radar e satellite: Dipartimento della Protezione Civile, piattaforma Radar-DPC (https://radar.protezionecivile.it),
+          dati elaborati (ritagliati, ricampionati, estrapolati e combinati con il modello).
+          Modello: WRF su dati ECMWF IFS open data (CC BY 4.0, https://www.ecmwf.int/en/forecasts/datasets/open-data), dati modificati.
+          Rilievo: Terrain Tiles (SRTM/GMTED). Confini: ISTAT (CC BY 3.0 IT), Natural Earth. Nomi: GeoNames (CC BY 4.0).
+          Previsione sperimentale: non usare per decisioni di sicurezza.
+          EOT
+          du -sh /home/runner/pubblico
+
+      - name: Pubblico nel ramo "risultati"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd /home/runner/pubblico
+          git init -q -b risultati
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Nowcasting $(date -u +%Y-%m-%dT%H:%MZ)"
+          git push -q -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" risultati
+          echo "Pubblicato: https://github.com/${GITHUB_REPOSITORY}/tree/risultati"
+
+      - name: Se qualcosa e' andato storto, pubblico il registro nel ramo "diagnosi"
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p /home/runner/diag && cd /home/runner/diag
+          cp /home/runner/registro.txt . 2>/dev/null || echo "nessun registro" > registro.txt
+          cp /home/runner/dati/diagnosi.json . 2>/dev/null || true
+          echo "Avvio fallito: $(date -u +%Y-%m-%dT%H:%MZ), https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" > LEGGIMI.txt
+          git init -q -b diagnosi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Diagnosi $(date -u +%Y-%m-%dT%H:%MZ)"
+          git push -q -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" diagnosi

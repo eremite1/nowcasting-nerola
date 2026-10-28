@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nowcasting Nerola</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --card: #ffffff; --testo: #1b2430; --muto: #5b6775; --linea: #d8dee5;
+    --accento: #1f6fb5; --accento-testo: #ffffff; --evid: #e8f1fa; --prev: #c0561b; --prev-sfondo: #fbeee6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-tema="chiaro"]) {
+      --bg: #12171d; --card: #1b232c; --testo: #e6ebf0; --muto: #98a4b1; --linea: #2d3945;
+      --accento: #5aa9ec; --accento-testo: #0c1620; --evid: #223142; --prev: #f0915a; --prev-sfondo: #3a2619;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--testo); font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { background: var(--card); border-bottom: 1px solid var(--linea); }
+  .testata { max-width: 1240px; margin: 0 auto; padding: 10px 16px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  h1 { font-size: 1.3rem; margin: 0; color: var(--accento); }
+  h1 small { font-size: .85rem; font-weight: 400; color: var(--muto); margin-left: 8px; }
+  .sotto { color: var(--muto); font-size: .8rem; margin-left: auto; text-align: right; }
+  main { max-width: 1240px; margin: 0 auto; padding: 14px 16px 28px; }
+  .griglia-pagina { display: grid; grid-template-columns: 1fr 320px; gap: 16px; align-items: start; }
+  @media (max-width: 900px) { .griglia-pagina { grid-template-columns: 1fr; } }
+  .card { background: var(--card); border: 1px solid var(--linea); border-radius: 12px; padding: 12px; }
+  .schede { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+  .schede button, .comandi button { padding: 7px 14px; border: 1px solid var(--linea); background: var(--card); color: var(--testo);
+                   border-radius: 10px; font: inherit; font-size: .92rem; cursor: pointer; }
+  .schede button[aria-pressed="true"] { background: var(--accento); color: var(--accento-testo); border-color: var(--accento); font-weight: 600; }
+  .schede .sep { flex: 1; }
+  .testa-mappa { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 2px 4px 10px; flex-wrap: wrap; }
+  .testa-mappa strong { font-size: 1.15rem; display: block; }
+  .testa-mappa span { color: var(--muto); font-size: .85rem; }
+  .chip { font-weight: 700; font-size: .85rem; padding: 4px 12px; border-radius: 999px; white-space: nowrap; background: var(--evid); color: var(--accento); }
+  .chip.prev { background: var(--prev-sfondo); color: var(--prev); }
+  .palco { position: relative; width: 100%; border-radius: 8px; overflow: hidden; border: 1px solid var(--linea); background: #e9eef2; }
+  .palco img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; user-select: none; -webkit-user-drag: none; }
+  .barra { display: flex; gap: 10px; align-items: center; margin-top: 10px; flex-wrap: wrap; }
+  .comandi { display: flex; gap: 6px; }
+  .comandi button#gioca { background: var(--accento); color: var(--accento-testo); border-color: var(--accento); min-width: 56px; font-weight: 700; }
+  .cursore-box { flex: 1; min-width: 200px; position: relative; padding-bottom: 18px; }
+  input[type=range] { width: 100%; accent-color: var(--accento); }
+  .tacche { position: absolute; left: 0; right: 0; bottom: 0; height: 16px; font-size: .72rem; color: var(--muto); font-weight: 600; }
+  .tacche span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
+  .adesso-linea { position: absolute; top: 2px; height: 22px; border-left: 2px dashed var(--prev); }
+  .legenda { display: flex; align-items: stretch; gap: 0; margin-top: 10px; font-size: .72rem; color: var(--muto); }
+  .legenda .tit { margin-right: 8px; align-self: center; font-weight: 600; }
+  .legenda div.c { flex: 1; text-align: left; }
+  .legenda div.c i { display: block; height: 12px; margin-right: 1px; }
+  .legenda-ir { display: none; margin-top: 10px; font-size: .78rem; color: var(--muto); }
+  .legenda-ir .scala { height: 12px; border-radius: 3px; margin: 4px 0;
+     background: linear-gradient(90deg, #0a0a0a 0%, #9a9a9a 40%, #ebebeb 55%, #338cff 62%, #1acc4d 70%, #ffe61a 78%, #ff5a0d 86%, #d90099 93%, #ffffff 100%); }
+  .legenda-ir .eti { display: flex; justify-content: space-between; }
+  aside h2 { font-size: .78rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muto); margin: 0 0 8px; }
+  aside .card + .card { margin-top: 12px; }
+  dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; font-size: .9rem; }
+  dt { color: var(--muto); }
+  dd { margin: 0; font-weight: 600; }
+  table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+  th, td { padding: 5px 4px; text-align: right; border-bottom: 1px solid var(--linea); }
+  th:first-child, td:first-child { text-align: left; }
+  th { color: var(--muto); font-weight: 600; font-size: .78rem; }
+  td.meglio { color: #1d8a4a; font-weight: 700; }
+  .nota { color: var(--muto); font-size: .78rem; margin-top: 8px; }
+  .peso { height: 8px; border-radius: 4px; background: var(--prev-sfondo); overflow: hidden; margin-top: 4px; }
+  .peso i { display: block; height: 100%; background: var(--accento); }
+  footer { max-width: 1240px; margin: 0 auto; padding: 0 16px 24px; color: var(--muto); font-size: .76rem; }
+  #errore { display: none; padding: 12px; border-radius: 10px; background: var(--prev-sfondo); color: var(--prev); margin-bottom: 12px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="testata">
+    <h1>Nowcasting Nerola <small>radar, satellite e previsione 0-6 ore</small></h1>
+    <div class="sotto" id="aggiornato">caricamento...</div>
+  </div>
+</header>
+<main>
+  <div id="errore"></div>
+  <div class="griglia-pagina">
+    <section class="card">
+      <div class="schede" role="group" aria-label="Prodotto">
+        <button data-prodotto="pioggia" aria-pressed="true">🌧️ Radar e previsione</button>
+        <button data-prodotto="satellite" aria-pressed="false">🛰️ Satellite</button>
+        <span class="sep"></span>
+        <button data-zona="lazio" aria-pressed="true">Lazio</button>
+        <button data-zona="sabina" aria-pressed="false">Sabina</button>
+      </div>
+      <div class="testa-mappa">
+        <div><strong id="ora">--</strong><span id="giorno">--</span></div>
+        <span class="chip" id="stato">--</span>
+      </div>
+      <div class="palco" id="palco">
+        <img id="l-fondo" alt="">
+        <img id="l-dati" alt="">
+        <img id="l-confini" alt="Mappa">
+      </div>
+      <div class="barra">
+        <div class="comandi">
+          <button id="indietro" title="Indietro" aria-label="Indietro">◀</button>
+          <button id="gioca" title="Avvia o ferma">▶</button>
+          <button id="avanti" title="Avanti" aria-label="Avanti">▶|</button>
+        </div>
+        <div class="cursore-box">
+          <input type="range" id="cursore" min="0" max="0" value="0" aria-label="Ora">
+          <div class="tacche" id="tacche"></div>
+        </div>
+      </div>
+      <div class="legenda" id="legenda"></div>
+      <div class="legenda-ir" id="legenda-ir">
+        Infrarosso (temperatura delle nubi): suolo e nubi basse scuri, nubi alte chiare, cime dei temporali colorate
+        <div class="scala"></div>
+        <div class="eti"><span>+35 °C</span><span>0 °C</span><span>-40 °C</span><span>-60 °C</span><span>-80 °C</span></div>
+      </div>
+    </section>
+    <aside>
+      <div class="card">
+        <h2>Situazione adesso</h2>
+        <dl id="situazione"></dl>
+        <div id="riga-peso" style="display:none">
+          <div class="nota" id="testo-peso"></div>
+          <div class="peso"><i id="barra-peso"></i></div>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Pagella (ultimi 7 giorni)</h2>
+        <table id="pagella"><tr><td>caricamento...</td></tr></table>
+        <div class="nota">Indice di successo (0-100) sulla pioggia di almeno 1 mm/h nel Lazio. "Persistenza" = la previsione banale
+          "la pioggia resta dov'e'": il nowcasting e' utile quando fa meglio.</div>
+      </div>
+      <div class="card">
+        <h2>Come funziona</h2>
+        <div class="nota" style="margin-top:0">Dagli ultimi scatti del radar si calcola come si muove la pioggia e la si trasporta avanti.
+          Con il passare delle ore il peso passa al modello WRF di Nerola, prima corretto confrontandolo con il radar di adesso
+          (posizione, intensita', affidabilita'). Previsione sperimentale.</div>
+      </div>
+    </aside>
+  </div>
+</main>
+<footer>
+  Radar e satellite: Dipartimento della Protezione Civile, piattaforma Radar-DPC (dati elaborati). Modello: WRF su dati ECMWF IFS open data (CC BY 4.0).
+  Rilievo: Terrain Tiles (SRTM/GMTED) · Confini: ISTAT, Natural Earth · Nomi: GeoNames. Non usare per decisioni di sicurezza:
+  per le allerte fanno fede i bollettini ufficiali della Protezione Civile.
+</footer>
+<script>
+(function () {
+  const stato = { indice: null, pagella: null, prodotto: "pioggia", zona: "lazio", fotogrammi: [], i: 0, gioca: false, timer: null, versione: "" };
+  const $ = (id) => document.getElementById(id);
+  const GIORNI = ["domenica", "lunedì", "martedì", "mercoledì", "giovedì", "venerdì", "sabato"];
+  const PUNTI = ["nord", "nord-nord-est", "nord-est", "est-nord-est", "est", "est-sud-est", "sud-est", "sud-sud-est",
+                 "sud", "sud-sud-ovest", "sud-ovest", "ovest-sud-ovest", "ovest", "ovest-nord-ovest", "nord-ovest", "nord-nord-ovest"];
+  const cache = {};
+
+  function data(iso) { return new Date(iso.replace("Z", ":00Z")); }
+  function ora(d) { return d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Rome" }); }
+  function giorno(d) {
+    const g = new Date(d.toLocaleString("en-US", { timeZone: "Europe/Rome" }));
+    return GIORNI[g.getDay()] + " " + g.getDate() + "/" + (g.getMonth() + 1);
+  }
+  function url(p) { return p + "?v=" + encodeURIComponent(stato.versione); }
+
+  function precarica(src) { if (!cache[src]) { const im = new Image(); im.src = src; cache[src] = im; } return cache[src]; }
+
+  function costruisci() {
+    const z = stato.indice.zone[stato.zona];
+    const base = stato.zona + "/";
+    if (stato.prodotto === "pioggia") {
+      stato.fotogrammi = z.radar.map((f) => ({ src: base + f.file, ora: f.ora, tipo: "oss" }))
+        .concat(z.previsione.map((f) => ({ src: base + f.file, ora: f.ora, tipo: "prev", minuti: f.minuti, peso: f.peso_radar })));
+      $("l-fondo").style.display = "";
+      $("l-fondo").src = url(base + "fondo.png");
+      $("legenda").style.display = "flex"; $("legenda-ir").style.display = "none";
+    } else {
+      stato.fotogrammi = z.satellite.map((f) => ({ src: base + f.file, ora: f.ora, tipo: "sat" }));
+      $("l-fondo").style.display = "none";
+      $("legenda").style.display = "none"; $("legenda-ir").style.display = "block";
+    }
+    $("l-confini").src = url(base + "confini.png");
+    $("palco").style.aspectRatio = z.larghezza + " / " + z.altezza;
+    stato.fotogrammi.forEach((f) => precarica(url(f.src)));
+    const cur = $("cursore");
+    cur.max = Math.max(0, stato.fotogrammi.length - 1);
+    // si parte dall'ultimo scatto osservato (l'"adesso")
+    let adesso = stato.fotogrammi.length - 1;
+    stato.fotogrammi.forEach((f, k) => { if (f.tipo === "oss") adesso = k; });
+    stato.adesso = adesso;
+    tacche();
+    mostra(adesso);
+  }
+
+  function tacche() {
+    const t = $("tacche"); t.innerHTML = "";
+    const n = stato.fotogrammi.length; if (n < 2) return;
+    stato.fotogrammi.forEach((f, k) => {
+      const d = data(f.ora);
+      if (d.getUTCMinutes() === 0 && (stato.prodotto !== "pioggia" || f.tipo === "oss" || f.minuti % 60 === 0 || k === 0)) {
+        const s = document.createElement("span");
+        s.style.left = (100 * k / (n - 1)) + "%";
+        s.textContent = ora(d).slice(0, 2);
+        t.appendChild(s);
+      }
+    });
+    if (stato.prodotto === "pioggia") {
+      const l = document.createElement("div"); l.className = "adesso-linea";
+      l.style.left = (100 * stato.adesso / (n - 1)) + "%"; t.appendChild(l);
+    }
+  }
+
+  function mostra(k) {
+    if (!stato.fotogrammi.length) return;
+    stato.i = (k + stato.fotogrammi.length) % stato.fotogrammi.length;
+    const f = stato.fotogrammi[stato.i];
+    $("l-dati").src = url(f.src);
+    $("cursore").value = stato.i;
+    const d = data(f.ora);
+    $("ora").textContent = "ore " + ora(d);
+    $("giorno").textContent = " " + giorno(d);
+    const chip = $("stato");
+    if (f.tipo === "prev") {
+      chip.className = "chip prev";
+      const h = Math.floor(f.minuti / 60), m = f.minuti % 60;
+      chip.textContent = "PREVISIONE +" + (h ? h + " h " : "") + (m ? m + " min" : "");
+      $("riga-peso").style.display = "";
+      const p = Math.round(100 * f.peso);
+      $("testo-peso").textContent = "Questa previsione viene per il " + p + "% dal radar e per il " + (100 - p) + "% dal WRF (dove il WRF c'è)";
+      $("barra-peso").style.width = p + "%";
+    } else {
+      chip.className = "chip";
+      chip.textContent = f.tipo === "sat" ? "SATELLITE" : "RADAR OSSERVATO";
+      $("riga-peso").style.display = "none";
+    }
+  }
+
+  function avvia(si) {
+    stato.gioca = si;
+    $("gioca").textContent = si ? "❚❚" : "▶";
+    clearInterval(stato.timer);
+    if (si) stato.timer = setInterval(() => {
+      // pausa sull'ultimo fotogramma, poi ricomincia
+      if (stato.i === stato.fotogrammi.length - 1) { stato.pausa = (stato.pausa || 0) + 1; if (stato.pausa < 4) return; stato.pausa = 0; }
+      mostra(stato.i + 1);
+    }, 450);
+  }
+
+  function legenda() {
+    const L = $("legenda"); L.innerHTML = '<span class="tit">mm/h</span>';
+    stato.indice.colori.forEach((c, k) => {
+      const d = document.createElement("div"); d.className = "c";
+      d.innerHTML = '<i style="background:' + c + '"></i>' + stato.indice.soglie[k];
+      L.appendChild(d);
+    });
+  }
+
+  function situazione() {
+    const info = stato.indice.info, m = info.movimento || {}, w = info.wrf || {};
+    const righe = [];
+    righe.push(["Ultimo radar", "ore " + ora(data(stato.indice.t0))]);
+    if (m.velocita_media_kmh > 1 && m.direzione !== null && m.direzione !== undefined)
+      righe.push(["La pioggia si muove", Math.round(m.velocita_media_kmh) + " km/h, da " + PUNTI[Math.round(m.direzione / 22.5) % 16]]);
+    else righe.push(["La pioggia si muove", m.pixel_pioggia ? "quasi ferma" : "nessuna pioggia rilevante"]);
+    righe.push(["Vita media delle celle", (info.vita_media_min || "--") + " min"]);
+    if (w.usato) {
+      righe.push(["Corsa WRF usata", w.corsa]);
+      righe.push(["Affidabilità del WRF oggi", Math.round(100 * w.abilita) + "%"]);
+      if (w.spostamento_km && (w.spostamento_km[0] || w.spostamento_km[1])) {
+        const dx = w.spostamento_km[0], dy = w.spostamento_km[1];
+        righe.push(["Correzione posizione WRF", Math.round(Math.hypot(dx, dy)) + " km verso " + PUNTI[Math.round(((Math.atan2(dx, dy) * 180 / Math.PI) + 360) % 360 / 22.5) % 16]]);
+      }
+      if (w.fattore_intensita && w.fattore_intensita !== 1) righe.push(["Correzione intensità WRF", "× " + w.fattore_intensita]);
+    } else righe.push(["WRF", w.motivo || "non disponibile, solo radar"]);
+    $("situazione").innerHTML = righe.map((r) => "<dt>" + r[0] + "</dt><dd>" + r[1] + "</dd>").join("");
+    const agg = data(stato.indice.aggiornato);
+    $("aggiornato").textContent = "aggiornato alle " + ora(agg) + " · si aggiorna ogni 15 minuti circa";
+  }
+
+  function pagella() {
+    const T = $("pagella");
+    const p = stato.pagella && stato.pagella.periodi && stato.pagella.periodi["7"];
+    if (!p) { T.innerHTML = "<tr><td>ancora nessun confronto</td></tr>"; return; }
+    let h = "<tr><th>Scadenza</th><th>Nowcasting</th><th>Persistenza</th><th>Casi</th></tr>", c = 0;
+    Object.keys(p).forEach((s) => {
+      const v = p[s]["1"]; if (!v) return; c++;
+      h += "<tr><td>+" + (s >= 60 ? (s / 60) + " h" : s + " min") + "</td><td class='" + (v.nowcast > v.persistenza ? "meglio" : "") + "'>" + v.nowcast +
+           "</td><td>" + v.persistenza + "</td><td>" + v.casi + "</td></tr>";
+    });
+    T.innerHTML = c ? h : "<tr><td>ancora nessun confronto (servono giorni di pioggia)</td></tr>";
+  }
+
+  async function carica(prima) {
+    try {
+      const r = await fetch("indice.json?t=" + Date.now(), { cache: "no-store" });
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      const ind = await r.json();
+      if (!prima && stato.indice && ind.aggiornato === stato.indice.aggiornato) return;
+      stato.indice = ind; stato.versione = ind.aggiornato;
+      try { const p = await fetch("pagella.json?t=" + Date.now(), { cache: "no-store" }); if (p.ok) stato.pagella = await p.json(); } catch (e) {}
+      $("errore").style.display = "none";
+      legenda(); situazione(); pagella(); costruisci();
+    } catch (e) {
+      $("errore").style.display = "block";
+      $("errore").textContent = "Dati non disponibili al momento (" + e.message + "). Riprovo tra poco.";
+    }
+  }
+
+  document.querySelectorAll("[data-prodotto]").forEach((b) => b.addEventListener("click", () => {
+    document.querySelectorAll("[data-prodotto]").forEach((x) => x.setAttribute("aria-pressed", x === b));
+    stato.prodotto = b.dataset.prodotto; costruisci();
+  }));
+  document.querySelectorAll("[data-zona]").forEach((b) => b.addEventListener("click", () => {
+    document.querySelectorAll("[data-zona]").forEach((x) => x.setAttribute("aria-pressed", x === b));
+    stato.zona = b.dataset.zona; costruisci();
+  }));
+  $("cursore").addEventListener("input", (e) => { avvia(false); mostra(+e.target.value); });
+  $("indietro").addEventListener("click", () => { avvia(false); mostra(stato.i - 1); });
+  $("avanti").addEventListener("click", () => { avvia(false); mostra(stato.i + 1); });
+  $("gioca").addEventListener("click", () => avvia(!stato.gioca));
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowLeft") { avvia(false); mostra(stato.i - 1); }
+    else if (e.key === "ArrowRight") { avvia(false); mostra(stato.i + 1); }
+    else if (e.key === " ") { e.preventDefault(); avvia(!stato.gioca); }
+  });
+  carica(true);
+  setInterval(() => carica(false), 5 * 60 * 1000);
+})();
+</script>
+</body>
+</html>

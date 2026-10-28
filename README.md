@@ -1,0 +1,51 @@
+# nowcasting-nerola
+
+Radar, satellite e **previsione della pioggia a 0-6 ore** sul Lazio e sulla Sabina, con mappe proprie, aggiornati da soli
+ogni 15 minuti circa sui computer di GitHub. Fa parte di [meteonerola.it](https://www.meteonerola.it) insieme a
+[wrf-nerola](https://github.com/eremite1/wrf-nerola) (modello WRF) e [meteo-mappe](https://github.com/eremite1/meteo-mappe).
+
+## Cosa fa
+
+1. **Scarica** dalla Protezione Civile (piattaforma Radar-DPC, dati liberi) gli ultimi scatti del radar nazionale
+   (intensità di pioggia, ogni 10 minuti, ultime 2 ore) e del satellite (infrarosso, ultime 3 ore).
+2. **Calcola come si muove la pioggia** confrontando gli ultimi 4 scatti (flusso ottico) e la **trasporta in avanti**
+   fino a 6 ore.
+3. **Misura quanto durano oggi le celle di pioggia**: temporali = vita breve, piogge estese = vita lunga.
+4. **Corregge il WRF** di Nerola confrontandolo con il radar di adesso (posizione, intensità, affidabilità).
+5. **Unisce** le due cose: nelle prime decine di minuti conta quasi solo il radar, poi il peso passa al WRF corretto.
+   I pesi non sono fissi: sono calcolati ogni volta dall'affidabilità misurata di ciascuno.
+6. **Si dà il voto da solo**: ogni previsione viene confrontata con quello che il radar vede davvero 30, 60, 120 e
+   180 minuti dopo, e messa a confronto con la previsione più banale ("la pioggia resta dov'è").
+7. **Disegna** le mappe (rilievo, confini, paesi, Nerola) e la pagina web con l'animazione.
+
+I dettagli scientifici (metodi e riferimenti) sono scritti all'inizio del file `nowcast.py`.
+
+## Dove sono i risultati
+
+- Ramo **`risultati`**: la pagina (`index.html`), le immagini, `indice.json`, la pagella (`pagella.json`, `storico.csv`).
+- Immagine pronta dell'ultimo radar: `lazio/ultimo.png` e `sabina/ultimo.png` nel ramo `risultati`.
+- Ramo **`diagnosi`**: compare solo se un giro non è riuscito, con il registro degli errori.
+
+## I file
+
+| File | A cosa serve |
+|---|---|
+| `scarica.py` | scarica radar e satellite dalla Protezione Civile e li ritaglia sull'Italia centrale |
+| `fonti.py` | come si "parla" con il servizio della Protezione Civile |
+| `geo.py` | legge i file GeoTIFF e converte le coordinate (proiezione del radar ↔ latitudine/longitudine) |
+| `wrf.py` | legge l'ultima previsione di wrf-nerola e la porta sulla griglia del radar |
+| `nowcast.py` | il cuore: movimento, estrapolazione, correzione del WRF, fusione |
+| `verifica.py` | la pagella |
+| `disegna.py` | le immagini |
+| `sfondo.py` | confini, fiumi, nomi dei paesi e rilievo (lo stesso di wrf-nerola) |
+| `pagina/index.html` | la pagina web |
+| `prove/prova_sintetica.py` | prova di tutto il sistema con pioggia finta, senza internet |
+| `.github/workflows/nowcasting.yml` | l'automazione che fa girare tutto ogni 15 minuti |
+
+## Fonti e licenze
+
+- Radar e satellite: Dipartimento della Protezione Civile, piattaforma Radar-DPC, dati elaborati.
+- Modello: WRF su dati ECMWF IFS open data (CC BY 4.0), dati modificati.
+- Rilievo: Terrain Tiles (SRTM/GMTED). Confini: ISTAT (CC BY 3.0 IT), Natural Earth. Nomi: GeoNames (CC BY 4.0).
+
+Previsione sperimentale: non usare per decisioni di sicurezza. Per le allerte valgono i bollettini ufficiali.

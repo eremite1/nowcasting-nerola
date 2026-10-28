@@ -1,0 +1,8 @@
+numpy
+scipy
+matplotlib
+pillow
+opencv-python-headless
+tifffile
+imagecodecs
+pyproj
