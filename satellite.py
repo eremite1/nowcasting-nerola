@@ -197,7 +197,7 @@ def sfuma(a, km):
     if km <= 0:
         return a
     px = km / ((BBOX[1] - BBOX[0]) * 111.0 * math.cos(math.radians(42.1)) / LARGHEZZA)
-    sigma = max(px / 2.4, 0.6)
+    sigma = max(px / 3.0, 0.6)
     if a.ndim == 3:
         return np.stack([sfuma(a[..., c], km) for c in range(a.shape[-1])], axis=-1)
     noto = np.isfinite(a).astype("float32")
@@ -299,7 +299,7 @@ def riflettanza(vis, cosz):
 
 
 def sandwich(vis, T, cosz):
-    fred = np.clip((25.0 - T) / 90.0, 0, 1)            # 0 = caldo (suolo), 1 = -65 gradi (cime dei temporali)
+    fred = np.clip((18.0 - T) / 78.0, 0, 1) ** 1.15    # 0 = caldo (suolo), 1 = -60 gradi (cime dei temporali)
     w = giorno(cosz)[..., None]
     if vis is None:
         w = np.zeros_like(w)
@@ -331,6 +331,10 @@ def pioggia_rgba(valori):
 
 
 def jpeg(rgb, percorso):
+    # leggera "maschera di contrasto": i bordi delle nubi diventano piu' netti senza inventare dettagli
+    rgb = np.asarray(rgb, dtype="float32")
+    morbido = np.stack([ndimage.gaussian_filter(rgb[..., c], 1.4) for c in range(3)], axis=-1)
+    rgb = rgb + 0.55 * (rgb - morbido)
     Image.fromarray((np.clip(rgb, 0, 1) * 255).astype(np.uint8), "RGB").save(percorso, quality=84, optimize=True, progressive=True)
 
 

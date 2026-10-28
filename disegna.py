@@ -45,7 +45,7 @@ AREE = {
 SOGLIE = [0.2, 0.5, 1, 2, 4, 7, 10, 15, 25, 40, 60, 100]
 COLORI = ["#a6e3ff", "#5fc8ff", "#1e90ff", "#0a4fd0", "#00a84f", "#7acc00", "#ffe600", "#ffa000", "#ff3c00",
           "#c8001e", "#ff00c8", "#8a00ff"]
-ALFA = [150, 185] + [215] * 10
+ALFA = [200, 215] + [235] * 10
 GRIGIO_NODATO = ("#9aa3ad", 90)
 CAPOLUOGHI = [("Rieti", 42.404, 12.857), ("Roma", 41.893, 12.483), ("Viterbo", 42.417, 12.105), ("Latina", 41.467, 12.903),
               ("Frosinone", 41.640, 13.343), ("Terni", 42.563, 12.643), ("L'Aquila", 42.350, 13.399),
@@ -201,12 +201,13 @@ def rilievo(zona, dem):
     hs = np.clip(np.cos(zen) * np.cos(pend) + np.sin(zen) * np.sin(pend) * np.cos(az - esp), 0, 1)
     piano = np.cos(zen)
     quota = np.clip(q / 1600.0, 0, 1)
-    basso = np.array([0.93, 0.95, 0.90])
-    alto = np.array([0.84, 0.78, 0.68])
+    # stile scuro (come Meteonetwork): terra blu-grigio scuro, montagne appena piu' chiare, mare blu notte
+    basso = np.array([0.15, 0.17, 0.26])
+    alto = np.array([0.30, 0.30, 0.36])
     base = basso * (1 - quota[..., None]) + alto * quota[..., None]
-    base = np.where((q <= 0)[..., None], np.array([0.80, 0.88, 0.96]), base)
-    ombra = np.clip((piano - hs) / piano, 0, 1) * 0.42
-    luce = np.clip((hs - piano) / (1 - piano), 0, 1) * 0.22
+    base = np.where((q <= 0)[..., None], np.array([0.04, 0.07, 0.19]), base)
+    ombra = np.clip((piano - hs) / piano, 0, 1) * 0.50
+    luce = np.clip((hs - piano) / (1 - piano), 0, 1) * 0.12
     base = base * (1 - ombra[..., None]) + luce[..., None] * (1 - base)
     return np.clip(base, 0, 1)
 
@@ -294,8 +295,6 @@ def confini(zona, sf, percorso, massimo=40, scuro=False):
                     color="#ffffff" if scuro else "#111111", zorder=6)
         t.set_path_effects([pe.withStroke(linewidth=2.6, foreground="#111111" if scuro else "white")])
         scritti += 1
-    ax.text(zona.W - 8, zona.H - 8, "www.meteonerola.it", ha="right", va="bottom", fontsize=10, fontweight="bold", color="#111111",
-            zorder=7, bbox=dict(boxstyle="round,pad=0.3", facecolor="white", edgecolor="#333333", linewidth=0.8, alpha=0.9))
     fig.savefig(percorso, dpi=100, transparent=True)
     plt.close(fig)
 
@@ -340,6 +339,7 @@ def composito(cartella, file_pioggia, titolo, sottotitolo, percorso):
     for i, c in enumerate(COLORI):
         d.rectangle([x + i * passo, y, x + (i + 1) * passo - 2, y + 14], fill=c)
         d.text((x + i * passo, y + 17), f"{SOGLIE[i]:g}", fill="#333333", font=piccolo)
+    d.text((12, H + alto + basso - 4), "www.meteonerola.it", fill="#1d4e89", font=piccolo, anchor="lb")
     d.text((W - 12, H + alto + basso - 4), "Radar: Protezione Civile (DPC)", fill="#6b7480", font=piccolo, anchor="rb")
     tela.quantize(256, method=Image.Quantize.FASTOCTREE, dither=Image.Dither.NONE).save(percorso, optimize=True)
 
@@ -374,8 +374,7 @@ def main():
         for sotto in ("radar", "previsione"):
             (cart / sotto).mkdir(parents=True, exist_ok=True)
         fondo(z, dem, cart / "fondo.png")
-        confini(z, sf, cart / "confini.png", massimo=45 if z.dettaglio else 20)
-        confini(z, sf, cart / "confini_scuro.png", massimo=45 if z.dettaglio else 20, scuro=True)
+        confini(z, sf, cart / "confini.png", massimo=45 if z.dettaglio else 20, scuro=True)
         voce = {"nome": z.nome, "larghezza": z.W, "altezza": z.H, "riquadro": [z.lon0, z.lon1, z.lat0, z.lat1],
                 "radar": [], "previsione": []}
         mappa = z.mappa_da(radar["griglia"])

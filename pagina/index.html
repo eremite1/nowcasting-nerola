@@ -37,7 +37,9 @@
   .chip { font-weight: 700; font-size: .85rem; padding: 4px 12px; border-radius: 999px; white-space: nowrap; background: var(--evid); color: var(--accento); }
   .chip.prev { background: var(--prev-sfondo); color: var(--prev); }
   .palco { position: relative; width: 100%; border-radius: 8px; overflow: hidden; border: 1px solid var(--linea); background: #e9eef2; }
-  .palco img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; user-select: none; -webkit-user-drag: none; }
+  .palco img { display: block; width: 100%; height: auto; }
+  .palco { background: #0b1030; }
+  #avviso-copia { color: var(--muto); font-size: .8rem; }
   .barra { display: flex; gap: 10px; align-items: center; margin-top: 10px; flex-wrap: wrap; }
   .comandi { display: flex; gap: 6px; }
   .comandi button#gioca { background: var(--accento); color: var(--accento-testo); border-color: var(--accento); min-width: 56px; font-weight: 700; }
@@ -95,15 +97,17 @@
         <span class="chip" id="stato">--</span>
       </div>
       <div class="palco" id="palco">
-        <img id="l-fondo" alt="">
-        <img id="l-dati" alt="">
-        <img id="l-confini" alt="Mappa">
+        <img id="vista" alt="Mappa: tieni premuto o tasto destro per copiare o salvare l'immagine">
       </div>
       <div class="barra">
         <div class="comandi">
           <button id="indietro" title="Indietro" aria-label="Indietro">◀</button>
           <button id="gioca" title="Avvia o ferma">▶</button>
           <button id="avanti" title="Avanti" aria-label="Avanti">▶|</button>
+        </div>
+        <div class="comandi">
+          <button id="copia" title="Copia l'immagine (poi incolla dove vuoi)">📋 Copia</button>
+          <button id="scarica" title="Salva l'immagine sul dispositivo">⬇️ Salva</button>
         </div>
         <div class="cursore-box">
           <input type="range" id="cursore" min="0" max="0" value="0" aria-label="Ora">
@@ -144,7 +148,7 @@
 </footer>
 <script>
 (function () {
-  const stato = { indice: null, sat: null, pagella: null, prodotto: "pioggia", satProdotto: "sandwich", zona: "lazio", fotogrammi: [], i: 0, gioca: false, timer: null, versione: "" };
+  const stato = { turno: 0, dim: { w: 860, h: 845, zona: "" }, indice: null, sat: null, pagella: null, prodotto: "pioggia", satProdotto: "sandwich", zona: "lazio", fotogrammi: [], i: 0, gioca: false, timer: null, versione: "" };
   const LEGENDE_SAT = {
     sandwich: "Nubi basse <b style='color:#c9b400'>gialle</b>, nubi alte e spesse <b>bianche</b>, veli di nubi alte <b style='color:#6b7fd6'>azzurri</b>, terra e mare blu scuro. Sopra: pioggia del radar (stessi colori della mappa radar) e fulmini. Di notte solo infrarosso.",
     visibile: "Visibile ad alta definizione (0,6 µm, pixel di 500 m): come una fotografia in bianco e nero. Di notte passa da solo all'infrarosso.",
@@ -166,32 +170,120 @@
   }
   function url(p) { return p + "?v=" + encodeURIComponent(stato.versione); }
 
-  function precarica(src) { if (!cache[src]) { const im = new Image(); im.src = src; cache[src] = im; } return cache[src]; }
+  function precarica(src) {
+    if (!cache[src]) {
+      const im = new Image();
+      cache[src] = new Promise((ok) => { im.onload = () => ok(im); im.onerror = () => ok(null); });
+      im.src = src;
+    }
+    return cache[src];
+  }
+
+  // ---- immagine completa (stile Meteonetwork): barra con titolo e ora, mappa, legenda e crediti, tutto in una sola immagine
+  const ALTO = 58, BASSO_LEG = 34, BASSO_CRED = 24;
+  const MESI = ["gen", "feb", "mar", "apr", "mag", "giu", "lug", "ago", "set", "ott", "nov", "dic"];
+  const GG = ["Dom", "Lun", "Mar", "Mer", "Gio", "Ven", "Sab"];
+  const SCALA_TOP = [[30, "#3a3a3a"], [-30, "#bdbdbd"], [-30.1, "#8cccff"], [-40, "#2673f2"], [-50, "#0db340"], [-58, "#fbeb1a"],
+                     [-64, "#ff8000"], [-70, "#d9001a"], [-75, "#bf00bf"], [-82, "#ffffff"]];
+  function titolo(f) {
+    const nomi = { sandwich: "Satellite - Radar - Fulmini", visibile: "Satellite visibile HD", colori: "Satellite colori reali",
+                   infrarosso: "Satellite infrarosso", topnubi: "Top nubi - Fulmini" };
+    if (f.tipo === "oss") return "Radar pioggia";
+    if (f.tipo === "prev") { const h = Math.floor(f.minuti / 60), m = f.minuti % 60; return "Previsione radar +" + (h ? h + "h" : "") + (m ? (h ? " " : "") + m + "min" : ""); }
+    return nomi[stato.satProdotto] || "Satellite";
+  }
+  async function componi(f) {
+    if (f.immagine) return f.immagine;
+    const imgs = await Promise.all(f.strati.map(precarica));
+    const W = stato.dim.w, H = stato.dim.h, leg = f.legenda ? BASSO_LEG : 0;
+    const c = document.createElement("canvas"); c.width = W; c.height = ALTO + H + leg + BASSO_CRED;
+    const x = c.getContext("2d");
+    x.fillStyle = "#ffffff"; x.fillRect(0, 0, c.width, c.height);
+    x.fillStyle = "#0b1030"; x.fillRect(0, ALTO, W, H);
+    imgs.forEach((im) => { if (im) x.drawImage(im, 0, ALTO, W, H); });
+    x.strokeStyle = "#111"; x.lineWidth = 1; x.strokeRect(0.5, ALTO + 0.5, W - 1, H - 1);
+    // barra in alto
+    const d = data(f.ora);
+    const loc = new Date(d.toLocaleString("en-US", { timeZone: "Europe/Rome" }));
+    x.fillStyle = "#111"; x.textBaseline = "middle";
+    x.font = "600 21px system-ui, -apple-system, Segoe UI, Roboto, sans-serif"; x.textAlign = "left";
+    x.fillText(titolo(f) + " · " + stato.dim.zona, 12, ALTO / 2 - 9);
+    x.font = "14px system-ui, -apple-system, Segoe UI, Roboto, sans-serif"; x.fillStyle = "#555";
+    x.fillText(f.tipo === "prev" ? "previsione da radar e modello WRF Nerola" : (f.tipo === "oss" ? "radar della Protezione Civile" : "Meteosat MTG"), 12, ALTO / 2 + 13);
+    x.textAlign = "right"; x.fillStyle = "#111"; x.font = "15px system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
+    x.fillText(GG[loc.getDay()] + " " + loc.getDate() + " " + MESI[loc.getMonth()] + " " + loc.getFullYear(), W - 12, ALTO / 2 - 9);
+    const hhmm = (n) => String(n).padStart(2, "0");
+    x.fillText(hhmm(d.getUTCHours()) + ":" + hhmm(d.getUTCMinutes()) + " UTC / " + ora(d) + " ora italiana", W - 12, ALTO / 2 + 12);
+    // legenda
+    let y = ALTO + H;
+    if (f.legenda === "pioggia") {
+      const n = stato.indice.colori.length, x0 = 52, w = (W - x0 - 12) / n;
+      x.textAlign = "left"; x.fillStyle = "#333"; x.font = "12px system-ui, sans-serif"; x.fillText("mm/h", 12, y + 12);
+      stato.indice.colori.forEach((col, k) => {
+        x.fillStyle = col; x.fillRect(x0 + k * w, y + 5, w - 2, 12);
+        x.fillStyle = "#333"; x.fillText(String(stato.indice.soglie[k]), x0 + k * w, y + 26);
+      });
+    } else if (f.legenda === "topnubi") {
+      const x0 = 52, w = W - x0 - 12, g = x.createLinearGradient(x0, 0, x0 + w, 0);
+      SCALA_TOP.forEach(([t, col]) => g.addColorStop(Math.min(1, Math.max(0, (30 - t) / 112)), col));
+      x.fillStyle = g; x.fillRect(x0, y + 5, w, 12);
+      x.textAlign = "left"; x.fillStyle = "#333"; x.font = "12px system-ui, sans-serif"; x.fillText("°C", 12, y + 12);
+      [30, 0, -30, -40, -50, -60, -70, -80].forEach((t) => { x.textAlign = "center"; x.fillText(String(t), x0 + w * (30 - t) / 112, y + 27); });
+    }
+    y += leg;
+    // crediti in basso
+    x.fillStyle = "#f2f4f7"; x.fillRect(0, y, W, BASSO_CRED);
+    x.textAlign = "left"; x.fillStyle = "#1d4e89"; x.font = "700 13px system-ui, sans-serif"; x.fillText("www.meteonerola.it", 12, y + BASSO_CRED / 2);
+    x.textAlign = "right"; x.fillStyle = "#555"; x.font = "11px system-ui, sans-serif";
+    x.fillText(f.tipo === "sat" ? "Satellite: EUMETSAT (dati modificati) · Radar: Protezione Civile" :
+               f.tipo === "prev" ? "Radar: Protezione Civile · Modello: WRF Nerola" : "Radar: Protezione Civile (dati elaborati)", W - 12, y + BASSO_CRED / 2);
+    f.tela = c;
+    f.immagine = c.toDataURL("image/jpeg", 0.92);
+    return f.immagine;
+  }
+  function nomeFile() {
+    const f = stato.fotogrammi[stato.i]; if (!f) return "meteonerola.jpg";
+    return "meteonerola_" + stato.zona + "_" + (f.tipo === "sat" ? stato.satProdotto : f.tipo === "prev" ? "previsione" : "radar") + "_" +
+           f.ora.replace(/[-:TZ]/g, "").slice(0, 12) + ".jpg";
+  }
+  async function copia() {
+    const f = stato.fotogrammi[stato.i]; if (!f) return;
+    await componi(f);
+    try {
+      const blob = await new Promise((ok) => f.tela.toBlob(ok, "image/png"));
+      await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+      $("copia").textContent = "✅ Copiata";
+    } catch (e) {
+      $("copia").textContent = "Usa tasto destro → Copia immagine";
+    }
+    setTimeout(() => { $("copia").textContent = "📋 Copia"; }, 2500);
+  }
+  async function salva() {
+    const f = stato.fotogrammi[stato.i]; if (!f) return;
+    const a = document.createElement("a"); a.href = await componi(f); a.download = nomeFile(); document.body.appendChild(a); a.click(); a.remove();
+  }
 
   function costruisci() {
     const z = stato.indice.zone[stato.zona];
     const base = stato.zona + "/";
     if (stato.prodotto === "pioggia") {
-      stato.fotogrammi = z.radar.map((f) => ({ src: base + f.file, ora: f.ora, tipo: "oss" }))
-        .concat(z.previsione.map((f) => ({ src: base + f.file, ora: f.ora, tipo: "prev", minuti: f.minuti, peso: f.peso_radar })));
-      $("l-fondo").style.display = "";
-      $("l-fondo").src = url(base + "fondo.png");
+      const st = (f) => [url(base + "fondo.png"), url(base + f.file), url(base + "confini.png")];
+      stato.fotogrammi = z.radar.map((f) => ({ strati: st(f), src: base + f.file, ora: f.ora, tipo: "oss", legenda: "pioggia" }))
+        .concat(z.previsione.map((f) => ({ strati: st(f), src: base + f.file, ora: f.ora, tipo: "prev", minuti: f.minuti, peso: f.peso_radar, legenda: "pioggia" })));
       $("legenda").style.display = "flex"; $("legenda-ir").style.display = "none";
-      $("l-confini").src = url(base + "confini.png");
       $("sat-prodotti").style.display = "none";
     } else {
       const zs = stato.sat && stato.sat.zone[stato.zona];
       const elenco = (zs && zs[stato.satProdotto]) || [];
-      stato.fotogrammi = elenco.map((f) => ({ src: base + f.file, ora: f.ora, tipo: "sat" }));
-      $("l-fondo").style.display = "none";
+      const leg = { sandwich: "pioggia", topnubi: "topnubi" }[stato.satProdotto] || "";
+      stato.fotogrammi = elenco.map((f) => ({ strati: [url(base + f.file), url(base + "confini.png")], src: base + f.file, ora: f.ora, tipo: "sat", legenda: leg }));
       $("legenda").style.display = "none"; $("legenda-ir").style.display = "block";
       $("legenda-ir").innerHTML = LEGENDE_SAT[stato.satProdotto] || "";
-      $("l-confini").src = url(base + "confini_scuro.png");
       $("sat-prodotti").style.display = "flex";
-      if (!elenco.length) { $("l-dati").removeAttribute("src"); $("ora").textContent = "immagini satellitari non ancora disponibili"; $("giorno").textContent = ""; }
+      if (!elenco.length) { $("vista").removeAttribute("src"); $("ora").textContent = "immagini satellitari non ancora disponibili"; $("giorno").textContent = ""; }
     }
-    $("palco").style.aspectRatio = z.larghezza + " / " + z.altezza;
-    stato.fotogrammi.forEach((f) => precarica(url(f.src)));
+    stato.dim = { w: z.larghezza, h: z.altezza, zona: z.nome };
+    stato.fotogrammi.forEach((f) => f.strati.forEach(precarica));
     const cur = $("cursore");
     cur.max = Math.max(0, stato.fotogrammi.length - 1);
     // si parte dall'ultimo scatto osservato (l'"adesso")
@@ -224,7 +316,8 @@
     if (!stato.fotogrammi.length) return;
     stato.i = (k + stato.fotogrammi.length) % stato.fotogrammi.length;
     const f = stato.fotogrammi[stato.i];
-    $("l-dati").src = url(f.src);
+    const turno = ++stato.turno;
+    componi(f).then((u) => { if (turno === stato.turno) $("vista").src = u; }).catch(() => {});
     $("cursore").value = stato.i;
     const d = data(f.ora);
     $("ora").textContent = "ore " + ora(d);
@@ -338,6 +431,8 @@
   $("indietro").addEventListener("click", () => { avvia(false); mostra(stato.i - 1); });
   $("avanti").addEventListener("click", () => { avvia(false); mostra(stato.i + 1); });
   $("gioca").addEventListener("click", () => avvia(!stato.gioca));
+  $("copia").addEventListener("click", () => { avvia(false); copia(); });
+  $("scarica").addEventListener("click", () => { avvia(false); salva(); });
   document.addEventListener("keydown", (e) => {
     if (e.key === "ArrowLeft") { avvia(false); mostra(stato.i - 1); }
     else if (e.key === "ArrowRight") { avvia(false); mostra(stato.i + 1); }
