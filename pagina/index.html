@@ -171,6 +171,8 @@
       <div class="scala" id="scala-pioggia"></div>
       <div class="scala" id="scala-neve" style="min-width:150px;flex:0 1 180px"></div>
       <div class="scala" id="scala-mista" style="min-width:110px;flex:0 1 130px"></div>
+      <div class="scala" id="scala-gelicidio" style="min-width:100px;flex:0 1 120px"></div>
+      <div class="scala" id="scala-granuli" style="min-width:100px;flex:0 1 120px"></div>
       <span class="lampo"><b style="background:#e8fbff;border:2px solid #0b7fa8"></b>grandine</span>
       <span class="lampo"><b style="background:#fff36b;border:1px solid #333"></b>fulmini 0-10 min</span>
       <span class="lampo"><b style="background:#ff9a1f"></b>10-30 min</span>
@@ -530,6 +532,8 @@
     scala("scala-pioggia", "pioggia mm/h", S.radar.colori, S.radar.soglie);
     scala("scala-neve", "neve", S.radar.colori_neve, S.radar.soglie_neve);
     scala("scala-mista", "mista", S.radar.colori_mista, S.radar.soglie_mista);
+    scala("scala-gelicidio", "gelicidio", S.radar.colori_gelicidio, S.radar.soglie_gelicidio);
+    scala("scala-granuli", "granuli", S.radar.colori_granuli, S.radar.soglie_granuli);
   }
   function situazione() {
     const info = S.radar.info, m = info.movimento || {}, w = info.wrf || {}, pn = (S.sat && S.sat.previsione_nubi) || {};

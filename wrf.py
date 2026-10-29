@@ -33,6 +33,10 @@ class PrevisioneWRF:
         self._t2 = np.asarray(z["T2"], dtype="float32") if "T2" in z.files else None
         self._q2 = np.asarray(z["Q2"], dtype="float32") if "Q2" in z.files else None
         self._ps = np.asarray(z["PSFC"], dtype="float32") if "PSFC" in z.files else None
+        # indici della colonna d'aria (bulbo umido in quota, aree di fusione e di rigelo: vedi colonna.py), se il WRF li ha
+        self._col = {k: np.asarray(z[k], dtype="float32") for k in ("TW2", "AFUS", "ARIG", "ZTW0") if k in z.files}
+        if len(self._col) < 3:
+            self._col = None
         self.u10 = np.asarray(z["U10"], dtype="float64") if "U10" in z.files else None
         self.v10 = np.asarray(z["V10"], dtype="float64") if "V10" in z.files else None
 

@@ -1,17 +1,23 @@
-"""Tipo di precipitazione (pioggia, mista, neve) e grandine.
+"""Tipo di precipitazione (pioggia, mista, neve, gelicidio, granuli di ghiaccio) e grandine.
 
-Il servizio pubblico della Protezione Civile non distribuisce piu' la classificazione delle idrometeore, ma da':
-  - POH: probabilita' di grandine stimata dal radar (in %, o tra 0 e 1);
-  - TEMP: temperatura dell'aria al suolo (analisi oraria delle stazioni).
-Con questi e con l'umidita' del WRF si calcola la temperatura di BULBO UMIDO (formula di Stull 2011), che e' la
-temperatura a cui si porta un fiocco che cade nell'aria non satura: e' il criterio usato in meteorologia per
-distinguere pioggia e neve al suolo.
-  - bulbo umido <= 0,5 gradi: neve
-  - tra 0,5 e 1,5 gradi:     mista (pioggia e neve)
-  - sopra 1,5 gradi:          pioggia
-  - grandine: dove il radar stima una probabilita' di grandine di almeno il 50% (solo osservato, non previsto)
-Per le ore di previsione la temperatura di bulbo umido e' quella del WRF, corretta con la differenza tra
-temperatura osservata e WRF di adesso.
+METODO PRINCIPALE: COLONNA D'ARIA (colonna.py, calcolata dal WRF a tutte le quote)
+  bulbo umido sotto 0 = l'acqua gela; tra 0 e 2 = la neve si mantiene; sopra 2 = la neve fonde.
+  Scendendo dalla nube al suolo si somma quanta "occasione di fondere" trova la neve (area di fusione: strati con
+  bulbo umido sopra 2 gradi, per il loro spessore) e, sotto lo strato caldo, quanta occasione ha la goccia di ri-gelare
+  (area di rigelo: strati sotto 0). Soglie del metodo di Bourgouin (2000):
+    poca fusione                          -> NEVE (se al suolo il bulbo umido non supera 2 gradi)
+    fusione media                         -> MISTA
+    fusione completa, poi strato freddo:  spesso -> GRANULI DI GHIACCIO, sottile con suolo sotto 0 -> GELICIDIO
+    fusione completa                      -> PIOGGIA
+  Quindi: strato caldo in quota e gelo solo vicino al suolo NON danno mai neve.
+  Il WRF viene corretto vicino al suolo con la temperatura osservata adesso dalle stazioni della Protezione Civile
+  (prodotto TEMP) e la stessa correzione si porta nelle ore di previsione.
+
+RIPIEGO (se il WRF non ha ancora gli indici della colonna): solo il bulbo umido al suolo (neve sotto 1 grado, mista
+tra 1 e 2, pioggia sopra 2).
+
+GRANDINE: dove il radar stima una probabilita' di grandine (POH) di almeno il 50% e nello stesso punto vede pioggia
+intensa (almeno 10 mm/h); solo osservata, non prevista.
 """
 import math
 from datetime import datetime, timedelta, timezone
@@ -19,8 +25,9 @@ from datetime import datetime, timedelta, timezone
 import numpy as np
 from scipy import ndimage
 
-PIOGGIA, MISTA, NEVE = 0, 1, 2
-SOGLIA_NEVE, SOGLIA_MISTA = 0.5, 1.5
+PIOGGIA, MISTA, NEVE, GELICIDIO, GRANULI = 0, 1, 2, 3, 4
+SOGLIA_NEVE, SOGLIA_MISTA = 1.0, 2.0     # solo per il ripiego (bulbo umido al suolo)
+STRATO_SUOLO = 250.0                     # metri di colonna corretti con la temperatura osservata
 SOGLIA_GRANDINE = 50.0
 
 
@@ -118,8 +125,39 @@ class Tipo:
         ur = umidita_relativa(T, q, p)
         return _riempi(self.ponte.porta(T - 273.15)), _riempi(self.ponte.porta(ur))
 
+    def _colonna(self, t):
+        """Indici della colonna del WRF all'istante t sulla griglia del radar (dizionario) o None."""
+        w = self.wrf
+        if self.ponte is None or getattr(w, "_col", None) is None or not (w.tempi[0] <= t <= w.tempi[-1]):
+            return None
+        s = np.array([(c - w.tempi[0]).total_seconds() for c in w.tempi])
+        x = (t - w.tempi[0]).total_seconds()
+        i = int(np.clip(np.searchsorted(s, x) - 1, 0, len(s) - 2))
+        f = (x - s[i]) / (s[i + 1] - s[i])
+        return {k: _riempi(self.ponte.porta(v[i] * (1 - f) + v[i + 1] * f)) for k, v in w._col.items()}
+
     def campo(self, t):
-        """Tipo (0 pioggia, 1 mista, 2 neve) all'istante t, o None se non si sa (allora e' pioggia)."""
+        """Tipo (0 pioggia, 1 mista, 2 neve, 3 gelicidio, 4 granuli) all'istante t, o None se non si sa."""
+        col = self._colonna(t)
+        if col is not None:
+            import colonna
+            self.info["metodo"] = "colonna d'aria del WRF (bulbo umido a tutte le quote), corretta al suolo con le stazioni"
+            tw_wrf_suolo = col["TW2"]
+            tws = tw_wrf_suolo
+            if self.t_oss is not None:
+                # bulbo umido osservato al suolo (temperatura delle stazioni + umidita' del WRF)
+                if not hasattr(self, "_delta"):
+                    col0 = self._colonna(self.t0)
+                    s0 = self._wrf(self.t0)
+                    tw_oss = bulbo_umido(self.t_oss, s0[1] if s0 is not None else 90.0)
+                    self._delta = tw_oss - col0["TW2"] if col0 is not None else 0.0
+                tws = tw_wrf_suolo + self._delta
+            afus = col["AFUS"] + (np.maximum(tws - 2, 0) - np.maximum(tw_wrf_suolo - 2, 0)) * STRATO_SUOLO
+            arig = col["ARIG"]
+            caldo_quota = (arig > 0) | (col["AFUS"] >= colonna.A_PIOGGIA)
+            arig = np.where(caldo_quota, np.maximum(arig + (np.maximum(-tws, 0) - np.maximum(-tw_wrf_suolo, 0)) * STRATO_SUOLO, 0), arig)
+            return colonna.classifica(np.maximum(afus, 0), arig, tws)
+        self.info["metodo"] = "solo bulbo umido al suolo (il WRF non ha ancora gli indici della colonna d'aria)"
         tw_wrf = self._wrf(t)
         if self.t_oss is not None:
             if t <= self.t0 or tw_wrf is None:

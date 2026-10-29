@@ -51,6 +51,10 @@ SOGLIE_NEVE = [0.2, 0.5, 1, 2, 4, 7]
 COLORI_NEVE = ["#f4f4ff", "#dcdcff", "#bdbdf7", "#9b9be8", "#7a6fd6", "#5a46b8"]
 SOGLIE_MISTA = [0.2, 1, 2, 4]
 COLORI_MISTA = ["#ffd1ec", "#ffa3d9", "#f472c0", "#d6409f"]
+SOGLIE_GELICIDIO = [0.2, 1, 3]
+COLORI_GELICIDIO = ["#8ff0dc", "#1fc7a8", "#00806b"]
+SOGLIE_GRANULI = [0.2, 1, 3]
+COLORI_GRANULI = ["#ffe0b3", "#ffb35c", "#d9781a"]
 GRIGIO_NODATO = ("#9aa3ad", 90)
 CAPOLUOGHI = [("Rieti", 42.404, 12.857), ("Roma", 41.893, 12.483), ("Viterbo", 42.417, 12.105), ("Latina", 41.467, 12.903),
               ("Frosinone", 41.640, 13.343), ("Terni", 42.563, 12.643), ("L'Aquila", 42.350, 13.399),
@@ -115,13 +119,13 @@ def ammorbidisci(campo, sigma):
 # ------------------------------------------------------------------------------------------ livelli trasparenti
 
 def tavolozza_pioggia():
-    """0 trasparente, 1 nessun dato, 2-13 pioggia, 14-19 neve, 20-23 mista."""
+    """0 trasparente, 1 nessun dato, 2-13 pioggia, 14-19 neve, 20-23 mista, 24-26 gelicidio, 27-29 granuli."""
     pal = [0, 0, 0] + list(hex_rgb(GRIGIO_NODATO[0]))
     alfa = [0, GRIGIO_NODATO[1]]
     for c, a in zip(COLORI, ALFA):
         pal += list(hex_rgb(c))
         alfa.append(a)
-    for c in COLORI_NEVE + COLORI_MISTA:
+    for c in COLORI_NEVE + COLORI_MISTA + COLORI_GELICIDIO + COLORI_GRANULI:
         pal += list(hex_rgb(c))
         alfa.append(240)
     return pal, alfa
@@ -142,6 +146,12 @@ def salva_pioggia(valori, percorso, tipo=None):
         mista = (tipo == 1) & (v >= SOGLIE_MISTA[0])
         cm = np.digitize(v, SOGLIE_MISTA)
         idx[mista] = 19 + cm[mista]
+        gel = (tipo == 3) & (v >= SOGLIE_GELICIDIO[0])
+        cg = np.digitize(v, SOGLIE_GELICIDIO)
+        idx[gel] = 23 + cg[gel]
+        gra = (tipo == 4) & (v >= SOGLIE_GRANULI[0])
+        cr = np.digitize(v, SOGLIE_GRANULI)
+        idx[gra] = 26 + cr[gra]
     idx[nodato] = 1
     im = Image.fromarray(idx, "P")
     pal, alfa = tavolozza_pioggia()
@@ -436,6 +446,8 @@ def main():
     indice["grandine"] = tipo_mod.grandine(gr, radar)
     indice["soglie_neve"], indice["colori_neve"] = SOGLIE_NEVE, COLORI_NEVE
     indice["soglie_mista"], indice["colori_mista"] = SOGLIE_MISTA, COLORI_MISTA
+    indice["soglie_gelicidio"], indice["colori_gelicidio"] = SOGLIE_GELICIDIO, COLORI_GELICIDIO
+    indice["soglie_granuli"], indice["colori_granuli"] = SOGLIE_GRANULI, COLORI_GRANULI
     # tipo a Nerola (per il riassunto)
     cN, rN = nc["griglia"].indici(np.array([NEROLA[1]]), np.array([NEROLA[0]]))
     cN, rN = int(round(float(cN[0]))), int(round(float(rN[0])))

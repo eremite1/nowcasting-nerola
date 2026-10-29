@@ -79,11 +79,12 @@ def riassunto_nerola(t0, pioggia_nerola, pioggia_vicina, nubi_nerola, fulmini, m
     frasi = {}
     p = np.asarray(pioggia_nerola)
     tn = list(tipo_nerola or [])
-    nome_tipo = lambda k: ("Neve" if tn[k] == 2 else "Pioggia mista a neve" if tn[k] == 1 else "Pioggia") if k < len(tn) else "Pioggia"  # noqa: E731
+    NOMI = {0: "Pioggia", 1: "Pioggia mista a neve", 2: "Neve", 3: "Gelicidio (pioggia che gela al suolo)", 4: "Granuli di ghiaccio"}
+    nome_tipo = lambda k: NOMI.get(tn[k], "Pioggia") if k < len(tn) else "Pioggia"  # noqa: E731
     piove = p >= 0.2
     if piove[0]:
         fine = next((k for k in range(1, len(p)) if not piove[k]), None)
-        verbo = "Sta nevicando" if tn and tn[0] == 2 else "Pioggia mista a neve" if tn and tn[0] == 1 else "Sta piovendo"
+        verbo = {2: "Sta nevicando", 1: "Pioggia mista a neve", 3: "Gelicidio: pioggia che gela al suolo", 4: "Granuli di ghiaccio"}.get(tn[0] if tn else 0, "Sta piovendo")
         frasi["pioggia"] = f"{verbo} a Nerola ({intensita(p[0])})" + (
             f": dovrebbe smettere verso le {ora_it(t0 + timedelta(minutes=10 * fine))}" if fine else ", e continuera' a lungo")
         frasi["livello_pioggia"] = "ora"
