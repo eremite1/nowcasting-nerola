@@ -1,0 +1,44 @@
+name: "Prototipo (prove grafiche)"
+# Prova tecnica: genera alcune immagini di prova e le mette nel ramo "esplora". Parte quando cambia uno dei file di prova.
+on:
+  push:
+    paths: [".github/workflows/prototipo.yml", "prove/prototipo_nubi.py", "nubi.py"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  prova:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -q -r requirements.txt
+      - name: Confini e rilievo (dalla cache)
+        uses: actions/cache/restore@v4
+        with:
+          path: /home/runner/sfondo
+          key: sfondo-v1
+      - name: Immagini di prova
+        run: |
+          mkdir -p /home/runner/p
+          git fetch -q --depth 1 origin risultati
+          git show FETCH_HEAD:satellite_taratura.json > /home/runner/taratura.json
+          ORA=$(date -u -d "-35 min" +%Y-%m-%dT%H:%M | sed 's/.$/0Z/')
+          python prove/prototipo_nubi.py --sfondo /home/runner/sfondo --taratura /home/runner/taratura.json --out /home/runner/p \
+            2026-10-28T09:00Z 2026-10-28T11:00Z 2026-10-28T14:30Z 2026-10-28T22:00Z "$ORA"
+          rm -rf /home/runner/p/cache
+          ls -la /home/runner/p
+      - name: Pubblico nel ramo "esplora"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd /home/runner/p
+          git init -q -b esplora && git add -A
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -q -m "Prototipo"
+          git push -q -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" esplora
