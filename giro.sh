@@ -15,12 +15,13 @@ python "$QUI/scarica.py" --out "$DATI" >> "$REG" 2>&1
 
 WRF=()
 if [ -n "${WRF_FILE:-}" ] && [ -f "$WRF_FILE" ]; then WRF=(--wrf "$WRF_FILE"); fi
-python "$QUI/nowcast.py" --dati "$DATI" "${WRF[@]}" --out "$DATI/nowcast.pkl" >> "$REG" 2>&1
+PAG=(); [ -f "$PUB/pagella.json" ] && PAG=(--pagella "$PUB/pagella.json")
+python "$QUI/nowcast.py" --dati "$DATI" "${WRF[@]}" "${PAG[@]}" --out "$DATI/nowcast.pkl" >> "$REG" 2>&1
 
 python "$QUI/verifica.py" --dati "$DATI" --nowcast "$DATI/nowcast.pkl" --precedente "$PUB" --out "$NUOVO" >> "$REG" 2>&1 \
   || echo "ATTENZIONE: pagella non riuscita" >> "$REG"
 
-python "$QUI/disegna.py" --dati "$DATI" --nowcast "$DATI/nowcast.pkl" --sfondo "${SFONDO:-}" --out "$NUOVO" >> "$REG" 2>&1
+python "$QUI/disegna.py" --dati "$DATI" --nowcast "$DATI/nowcast.pkl" --sfondo "${SFONDO:-}" --wrf "${WRF_FILE:-}" --out "$NUOVO" >> "$REG" 2>&1
 
 # il satellite non deve mai bloccare il radar: se non riesce, si tengono le immagini del giro precedente
 if ! timeout 480 python "$QUI/satellite.py" --cache "${CACHE_SAT:-$DATI/cache_sat}" --dati "$DATI" --precedente "$PUB" \

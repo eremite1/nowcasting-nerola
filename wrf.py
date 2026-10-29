@@ -29,6 +29,10 @@ class PrevisioneWRF:
         self.tassi = tassi / durate[:, None, None]
         self.corsa = self.tempi[0]
         self.nubi = self._nuvolosita(z) if all(k in z.files for k in ("GLW", "T2", "Q2", "PSFC")) else None
+        # temperatura, umidita' e pressione al suolo (per il tipo di precipitazione, vedi tipo.py)
+        self._t2 = np.asarray(z["T2"], dtype="float32") if "T2" in z.files else None
+        self._q2 = np.asarray(z["Q2"], dtype="float32") if "Q2" in z.files else None
+        self._ps = np.asarray(z["PSFC"], dtype="float32") if "PSFC" in z.files else None
         self.u10 = np.asarray(z["U10"], dtype="float64") if "U10" in z.files else None
         self.v10 = np.asarray(z["V10"], dtype="float64") if "V10" in z.files else None
 

@@ -9,12 +9,16 @@ ogni 10 minuti sui computer di GitHub. Fa parte di [meteonerola.it](https://www.
 1. **Scarica** dalla Protezione Civile (piattaforma Radar-DPC, dati liberi) gli ultimi scatti del radar nazionale
    (intensità di pioggia, ogni 5 minuti, ultime 2 ore) e dal servizio EUMETView di EUMETSAT le immagini del satellite
    Meteosat di terza generazione (MTG): visibile a 500 m, infrarosso a 1 km, colori reali, fulmini, ogni 10 minuti.
-2. **Calcola come si muove la pioggia** confrontando gli ultimi 4 scatti (flusso ottico) e la **trasporta in avanti**
-   fino a 6 ore.
-3. **Misura quanto durano oggi le celle di pioggia**: temporali = vita breve, piogge estese = vita lunga.
-4. **Corregge il WRF** di Nerola confrontandolo con il radar di adesso (posizione, intensità, affidabilità).
-5. **Unisce** le due cose: nelle prime decine di minuti conta quasi solo il radar, poi il peso passa al WRF corretto.
-   I pesi non sono fissi: sono calcolati ogni volta dall'affidabilità misurata di ciascuno.
+2. **Più movimenti**: la pioggia viene separata in celle (sotto circa 20 km) e sistema (fronte, banda). Le celle si
+   muovono come misurato ogni 10 minuti, il sistema come misurato su 60 minuti; con le ore il sistema segue il
+   movimento previsto dal WRF corretto (`nowcast.py`, `fusione.py`).
+3. **Vita media separata** per celle e sistema: le celle si attenuano prima.
+4. **WRF corretto punto per punto**: confrontato con radar e satellite di adesso, si calcola per ogni zona l'errore di
+   posizione e di intensità, e la correzione si proietta su tutte le 6 ore (pioggia e nubi).
+5. **Pesi imparati dai dati**: estrapolazione e WRF corretto vengono verificati separatamente; quando ci sono
+   abbastanza casi di pioggia, i pesi a ogni scadenza vengono dall'abilità misurata.
+- **Tipo di precipitazione**: pioggia, mista, neve (temperatura di bulbo umido da temperatura osservata della
+  Protezione Civile e umidità del WRF) e grandine (probabilità di grandine del radar) (`tipo.py`).
 6. **Si dà il voto da solo**: ogni previsione viene confrontata con quello che il radar vede davvero 30, 60, 120 e
    180 minuti dopo, e messa a confronto con la previsione più banale ("la pioggia resta dov'è").
 7. **Nubi su mappa vera**: le nubi vengono separate dal suolo (piu' chiare nel visibile, piu' fredde nell'infrarosso)
@@ -48,6 +52,8 @@ I dettagli scientifici (metodi e riferimenti) sono scritti all'inizio del file `
 | `satellite.py` | satellite ad alta definizione (EUMETSAT MTG): scarico, taratura delle temperature, 5 prodotti |
 | `giro.sh` | un giro completo (scarico, previsione, pagella, immagini) |
 | `wrf.py` | legge l'ultima previsione di wrf-nerola e la porta sulla griglia del radar |
+| `fusione.py` | correzione del WRF punto per punto, movimenti a più scale, pesi imparati |
+| `tipo.py` | pioggia, mista, neve e grandine |
 | `nowcast.py` | il cuore: movimento, estrapolazione, correzione del WRF, fusione |
 | `verifica.py` | la pagella |
 | `disegna.py` | le immagini |

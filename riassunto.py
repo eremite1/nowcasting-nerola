@@ -72,16 +72,19 @@ def ora_it(t):
     return t.astimezone(ZoneInfo("Europe/Rome")).strftime("%H:%M")
 
 
-def riassunto_nerola(t0, pioggia_nerola, pioggia_vicina, nubi_nerola, fulmini, mov_pioggia, mov_nubi):
+def riassunto_nerola(t0, pioggia_nerola, pioggia_vicina, nubi_nerola, fulmini, mov_pioggia, mov_nubi, tipo_nerola=None, grandine=None):
     """pioggia_nerola: mm/h ogni 10 minuti da t0 (indice 0 = osservato adesso) a +6 h (max entro 3 km da Nerola);
     pioggia_vicina: (distanza km, direzione, mm/h) della pioggia piu' vicina adesso entro 40 km, o None;
     nubi_nerola: lista (istante, copertura 0-1) osservata e prevista; fulmini: lista con 'ora','lat','lon'."""
     frasi = {}
     p = np.asarray(pioggia_nerola)
+    tn = list(tipo_nerola or [])
+    nome_tipo = lambda k: ("Neve" if tn[k] == 2 else "Pioggia mista a neve" if tn[k] == 1 else "Pioggia") if k < len(tn) else "Pioggia"  # noqa: E731
     piove = p >= 0.2
     if piove[0]:
         fine = next((k for k in range(1, len(p)) if not piove[k]), None)
-        frasi["pioggia"] = f"Sta piovendo a Nerola ({intensita(p[0])})" + (
+        verbo = "Sta nevicando" if tn and tn[0] == 2 else "Pioggia mista a neve" if tn and tn[0] == 1 else "Sta piovendo"
+        frasi["pioggia"] = f"{verbo} a Nerola ({intensita(p[0])})" + (
             f": dovrebbe smettere verso le {ora_it(t0 + timedelta(minutes=10 * fine))}" if fine else ", e continuera' a lungo")
         frasi["livello_pioggia"] = "ora"
     else:
@@ -90,7 +93,7 @@ def riassunto_nerola(t0, pioggia_nerola, pioggia_vicina, nubi_nerola, fulmini, m
             picco = float(p[inizio:inizio + 6].max())
             minuti = 10 * inizio
             quando = f"tra circa {minuti} minuti" if minuti < 90 else f"verso le {ora_it(t0 + timedelta(minutes=minuti))}"
-            frasi["pioggia"] = f"Pioggia in arrivo a Nerola {quando} ({intensita(picco)})"
+            frasi["pioggia"] = f"{nome_tipo(inizio)} in arrivo a Nerola {quando} ({intensita(picco)})"
             frasi["livello_pioggia"] = "presto" if minuti <= 60 else "dopo"
         else:
             frasi["pioggia"] = "Nessuna pioggia prevista a Nerola nelle prossime 6 ore"
@@ -98,6 +101,18 @@ def riassunto_nerola(t0, pioggia_nerola, pioggia_vicina, nubi_nerola, fulmini, m
             if pioggia_vicina:
                 d, dove, mm = pioggia_vicina
                 frasi["pioggia"] += f" (ora piove a {round(d)} km verso {dove})"
+    # grandine stimata dal radar (ultimi 30 minuti, entro 30 km)
+    if grandine:
+        from datetime import datetime, timezone
+        vicine = []
+        for g in grandine:
+            tg = datetime.strptime(g["ora"], "%Y-%m-%dT%H:%MZ").replace(tzinfo=timezone.utc)
+            d = km(*NEROLA, g["lat"], g["lon"])
+            if (t0 - tg).total_seconds() <= 1800 and d <= 30:
+                vicine.append((d, g))
+        if vicine:
+            d, g = min(vicine, key=lambda x: x[0])
+            frasi["grandine"] = f"Possibile grandine a {round(d)} km verso {verso(*NEROLA, g['lat'], g['lon'])} (probabilita' {g['poh']}%)"
     # fulmini (ultimi 30 minuti)
     recenti = [f for f in fulmini if (t0 - f["t"]).total_seconds() <= 1800]
     if recenti:

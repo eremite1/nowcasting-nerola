@@ -63,8 +63,10 @@ def serie(tipo, ore, passo_min, riquadro, diagnosi):
             print(f"  {tipo} {iso(ms)}: file non leggibile ({e})", file=sys.stderr)
             diagnosi.setdefault("errori", []).append(f"{tipo} {iso(ms)}: {e}")
             continue
-        if tipo == "SRI":
-            a[a < 0] = np.nan      # il radar scrive -9999 dove non vede (fuori copertura): e' "nessun dato", non "zero"
+        if tipo in ("SRI", "POH"):
+            a[a < 0] = np.nan      # valori negativi (-9999) = "nessun dato", non "zero"
+        if tipo == "TEMP":
+            a[(a < -60) | (a > 330)] = np.nan      # il radar scrive -9999 dove non vede (fuori copertura): e' "nessun dato", non "zero"
         if griglia is None:
             griglia = g
             ritaglio = g.riquadro_indici(*riquadro)
@@ -113,6 +115,15 @@ def main():
     except Exception as e:  # noqa: BLE001
         diagnosi["errore_satellite"] = str(e)
         print(f"ATTENZIONE satellite non disponibile: {e}", file=sys.stderr)
+    # probabilita' di grandine (POH) dell'ultima ora e temperatura al suolo (TEMP): servono per il tipo di precipitazione
+    for tipo, ore, passo, nome in (("POH", 1.0, 10, "grandine.pkl"), ("TEMP", 0.0, 60, "temperatura.pkl")):
+        try:
+            d = serie(tipo, ore, passo, RIQUADRO_SAT, diagnosi)
+            with open(out / nome, "wb") as f:
+                pickle.dump(d, f)
+        except Exception as e:  # noqa: BLE001
+            diagnosi[f"errore_{tipo}"] = str(e)
+            print(f"ATTENZIONE {tipo} non disponibile: {e}", file=sys.stderr)
     diagnosi["secondi"] = round(time.time() - inizio, 1)
     (out / "diagnosi.json").write_text(json.dumps(diagnosi, indent=1, default=str))
     print(f"fatto in {diagnosi['secondi']} s")

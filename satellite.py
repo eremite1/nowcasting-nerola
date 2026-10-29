@@ -608,7 +608,12 @@ def main():
         if d[k] <= 40:
             lo_p, la_p = g_radar.proj.indietro(g_radar.x0 + xx[k] * g_radar.dx, g_radar.y0 - yy[k] * g_radar.dy)
             vicina = (float(d[k]), riassunto.verso(*riassunto.NEROLA, float(la_p), float(lo_p)), float(adesso[yy[k], xx[k]]))
-    indice["nerola"] = riassunto.riassunto_nerola(t0, pn, vicina, nubi_nerola, fulmini, None, info_nubi)
+    tipo_nerola, gr = None, None
+    if Path(f"{a.dati}/tipo.pkl").exists():
+        with open(f"{a.dati}/tipo.pkl", "rb") as f:
+            tdat = pickle.load(f)
+        tipo_nerola, gr = tdat.get("nerola"), tdat.get("grandine")
+    indice["nerola"] = riassunto.riassunto_nerola(t0, pn, vicina, nubi_nerola, fulmini, None, info_nubi, tipo_nerola, gr)
     indice["nerola"]["pioggia_10min"] = [round(v, 1) for v in pn]
     indice["nerola"]["nubi_10min"] = [round(c, 2) for _, c in nubi_nerola]
     indice["t0"] = iso(t0)

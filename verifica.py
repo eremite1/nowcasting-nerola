@@ -44,6 +44,22 @@ def csi(prev, oss, soglia):
     return (colpiti / tot if tot >= 20 else None), int(o.sum())
 
 
+def correla(prev, oss):
+    """Correlazione tra previsione e osservazione (decibel, sfumati su circa 6 km), solo se piove abbastanza."""
+    from scipy import ndimage
+    m = np.isfinite(prev) & np.isfinite(oss)
+    bag = ((np.nan_to_num(prev) >= 0.2) | (np.nan_to_num(oss) >= 0.2)) & m
+    if bag.sum() < 400:
+        return None
+    db = lambda r: np.where(np.nan_to_num(r) >= 0.1, 10 * np.log10(np.maximum(np.nan_to_num(r), 0.1)), -15.0) + 15  # noqa: E731
+    a = ndimage.gaussian_filter(db(prev), 6)
+    b = ndimage.gaussian_filter(db(oss), 6)
+    zona = ndimage.binary_dilation(bag, iterations=10) & m
+    if a[zona].std() < 1e-6 or b[zona].std() < 1e-6:
+        return None
+    return float(np.corrcoef(a[zona], b[zona])[0, 1])
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--dati", required=True)
@@ -64,6 +80,12 @@ def main():
 
     # 1) archivio: previsione di adesso (e osservazione di adesso, per la persistenza)
     campi = {f"p{s}": nc["campi"][s // 10][r0:r1, c0:c1].astype("float16") for s in SCADENZE}
+    # le due componenti separate (estrapolazione del radar e WRF corretto), per imparare quanto pesarle
+    for s, comp in (nc.get("componenti") or {}).items():
+        if comp.get("estrapolazione") is not None:
+            campi[f"e{s}"] = np.nan_to_num(comp["estrapolazione"][r0:r1, c0:c1]).astype("float16")
+        if comp.get("wrf") is not None:
+            campi[f"w{s}"] = np.nan_to_num(comp["wrf"][r0:r1, c0:c1], nan=0.0).astype("float16")
     campi["oss"] = nc["campi"][0][r0:r1, c0:c1].astype("float16")
     nome = f"{t0:%Y%m%d_%H%M}.npz"
     np.savez_compressed(out / "archivio" / nome, t0=nc["tempi"][0], x0=g.x0, y0=g.y0, riquadro=np.array([r0, r1, c0, c1]), **campi)
@@ -100,6 +122,11 @@ def main():
                 prev = z[f"p{s}"].astype("float64")
                 pers = z["oss"].astype("float64")
                 riga = {"partenza": str(z["t0"]), "minuti": str(s), "valida": valida.strftime("%Y-%m-%dT%H:%MZ")}
+                # correlazione (campi in decibel, sfumati su circa 6 km) di ciascuna componente con la pioggia vera
+                for nome, chiave in (("fusione", f"p{s}"), ("estrapolazione", f"e{s}"), ("wrf", f"w{s}")):
+                    if chiave in z.files:
+                        c_ = correla(z[chiave].astype("float64"), oss)
+                        riga[f"corr_{nome}"] = "" if c_ is None else f"{c_:.3f}"
                 for sg in SOGLIE:
                     c_p, n_o = csi(prev, oss, sg)
                     c_s, _ = csi(pers, oss, sg)
@@ -111,7 +138,8 @@ def main():
     limite = adesso - timedelta(days=GIORNI_STORICO)
     righe = [r for r in righe_vecchie if tempo(r["valida"]) >= limite] + nuove
     campi_csv = ["partenza", "minuti", "valida"] + [f"{k}{sg:g}{suf}" for sg in SOGLIE
-                                                    for k, suf in (("csi", "_nowcast"), ("csi", "_persistenza"), ("pixel_pioggia", ""))]
+                                                    for k, suf in (("csi", "_nowcast"), ("csi", "_persistenza"), ("pixel_pioggia", ""))] \
+        + ["corr_fusione", "corr_estrapolazione", "corr_wrf"]
     with open(out / "storico.csv", "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=campi_csv, extrasaction="ignore")
         w.writeheader()
@@ -134,6 +162,18 @@ def main():
                                        "persistenza": round(100 * float(np.mean([c[1] for c in coppie]))), "casi": len(coppie)}
             per[str(s)] = voce
         pagella["periodi"][str(giorni)] = per
+    # abilita' delle componenti (ultimi 14 giorni): serve a nowcast.py per scegliere i pesi
+    da = adesso - timedelta(days=14)
+    abil = {}
+    for s in SCADENZE:
+        sel = [r for r in righe if int(r["minuti"]) == s and tempo(r["valida"]) >= da
+               and r.get("corr_estrapolazione") and r.get("corr_wrf")]
+        if sel:
+            abil[str(s)] = {"estrapolazione": round(float(np.mean([float(r["corr_estrapolazione"]) for r in sel])), 3),
+                            "wrf": round(float(np.mean([float(r["corr_wrf"]) for r in sel])), 3),
+                            "fusione": round(float(np.mean([float(r["corr_fusione"]) for r in sel if r.get("corr_fusione")] or [0])), 3),
+                            "casi": len(sel)}
+    pagella["abilita_componenti"] = abil
     (out / "pagella.json").write_text(json.dumps(pagella, ensure_ascii=False, indent=1))
     print(f"confronti nuovi: {len(nuove)}, righe nello storico: {len(righe)}, file in archivio: "
           f"{len(list((out / 'archivio').glob('*.npz')))}")

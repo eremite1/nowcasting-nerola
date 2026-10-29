@@ -4,8 +4,9 @@
  2. ESTRAPOLAZIONE: l'ultimo scatto viene trasportato avanti lungo il movimento (schema semi-lagrangiano).
  3. VITA MEDIA: quanto e' affidabile l'estrapolazione oggi (scatto di 30 minuti fa trasportato fino ad adesso e
     confrontato con quello vero).
- 4. WRF: la nuvolosita' del WRF (dalla radiazione infrarossa al suolo, vedi wrf.py) viene confrontata con quella vista
-    dal satellite adesso, per sapere quanto e' affidabile oggi.
+ 4. WRF CORRETTO: la nuvolosita' del WRF (dalla radiazione infrarossa al suolo, vedi wrf.py) viene confrontata con
+    quella vista adesso dal satellite e corretta punto per punto (posizione e quantita', vedi fusione.py); la stessa
+    correzione si applica alle ore successive, cosi' anche le nubi nuove previste dal WRF compaiono nel posto giusto.
  5. FUSIONE: pesi ottimali r/(1-r^2) come per la pioggia: all'inizio le nubi viste dal satellite, poi sempre piu' il WRF.
 Tutto si calcola su una griglia a meta' definizione della zona Lazio (circa 560 m), poi si riporta alla definizione piena.
 """
@@ -88,19 +89,32 @@ def prevedi(campi, t_ultimo, tempi_voluti, wrf_prev, lon, lat, passo_km):
     a_est, valido = nowcast.estrapola(np.where(np.isfinite(alfa0), alfa0, np.nan), u, v, passi)
     l_est, _ = nowcast.estrapola(np.where(np.isfinite(lum0), lum0, np.nan), u, v, passi)
     # abilita' del WRF oggi
-    c, w_info = 0.25, {"usato": False}
+    c, w_info, correzione = 0.25, {"usato": False}, None
     if wrf_prev is not None:
         try:
             import wrf as wrf_mod
             ponte = wrf_mod.Ponte(wrf_prev, lon, lat)
             cw0 = wrf_prev.nuvolosita(t_ultimo)
             if cw0 is not None:
+                import fusione
                 cw0 = ponte.porta(cw0)
-                m = np.isfinite(cw0) & np.isfinite(alfa0)
-                r = correlazione(ndimage.gaussian_filter(np.nan_to_num(alfa0), 9), np.nan_to_num(cw0), m)
-                c = float(np.clip(r if np.isfinite(r) else 0.05, 0.05, 0.7))
+                # correzione punto per punto del WRF sulle nubi viste adesso dal satellite (posizione e quantita')
+                spost, info_all = fusione.allinea(alfa0, cw0, lambda x: np.nan_to_num(x), 0.0, 1.0, sigma_campo=3,
+                                                  sigma_spost=20, max_spost=60.0 / passo_km, soglia=0.2)
+                du, dv = spost if spost is not None else (np.zeros(alfa0.shape), np.zeros(alfa0.shape))
+                cwa = fusione.deforma(cw0, du, dv)
+                m = np.isfinite(cwa) & np.isfinite(alfa0)
+                tab = fusione.tabella_quantili(np.nan_to_num(alfa0), cwa, m, limite=4.0) if m.sum() > 1000 else None
+                r0 = correlazione(ndimage.gaussian_filter(np.nan_to_num(alfa0), 9), np.nan_to_num(cw0), np.isfinite(cw0) & np.isfinite(alfa0))
+                r1 = correlazione(ndimage.gaussian_filter(np.nan_to_num(alfa0), 9), np.nan_to_num(cwa), m)
+                vals = [v for v in (r0, r1) if np.isfinite(v)]
+                c = float(np.clip(np.mean(vals) if vals else 0.05, 0.05, 0.7))
+                correzione = (du, dv, tab)
                 w_info = {"usato": True, "abilita": round(c, 2), "nuvolosita_wrf": round(float(np.nanmean(cw0)), 2),
-                          "nuvolosita_satellite": round(float(np.nanmean(alfa0)), 2)}
+                          "nuvolosita_satellite": round(float(np.nanmean(alfa0)), 2),
+                          "spostamento_medio_km": None if spost is None else round(info_all.get("spostamento_medio_px", 0) * passo_km, 1),
+                          "correlazione_prima": None if not np.isfinite(r0) else round(r0, 3),
+                          "correlazione_dopo": None if not np.isfinite(r1) else round(r1, 3)}
         except Exception as e:  # noqa: BLE001
             w_info = {"usato": False, "errore": str(e)[:200]}
             ponte = None
@@ -117,7 +131,12 @@ def prevedi(campi, t_ultimo, tempi_voluti, wrf_prev, lon, lat, passo_km):
         cw = None
         if w_info.get("usato"):
             cw = wrf_prev.nuvolosita(t)
-            cw = ponte.porta(cw) if cw is not None else None
+            if cw is not None:
+                import fusione
+                du, dv, tab = correzione
+                minuti = k * PASSO
+                cw = fusione.deforma(ponte.porta(cw), du, dv, fattore=math.exp(-minuti / 360.0))
+                cw = np.clip(fusione.applica_tabella(cw, tab, alfa=math.exp(-minuti / 240.0)), 0, 1)
         if cw is not None:
             zw = sfuma(np.isfinite(cw))              # 1 dentro il WRF, sfuma verso il bordo
             cwf = np.nan_to_num(cw) ** 1.3          # nuvolosita' del modello resa come opacita' (le velature leggere restano leggere)
