@@ -81,6 +81,11 @@ class Tipo:
             c, r = temperatura["griglia"].indici(self.lon, self.lat)
             mappa = (np.asarray(c, dtype="float32"), np.asarray(r, dtype="float32"))
             t = _in_celsius(np.asarray(temperatura["campi"][-1], dtype="float64"))
+            # il file mette 0 esatto dove non ha il dato (mare, zone senza stazioni): se gli zeri esatti sono tanti,
+            # sono "nessun dato" e non zero gradi
+            if np.isfinite(t).any() and (t == 0).sum() > 0.05 * np.isfinite(t).sum():
+                t = np.where(t == 0, np.nan, t)
+                self.info["zeri_tolti"] = True
             t = disegna.ricampiona(t, mappa)
             if np.isfinite(t).mean() > 0.2:
                 # i buchi (mare, zone senza stazioni) si riempiono con il valore dei dintorni
@@ -131,12 +136,15 @@ class Tipo:
         return classifica(tw)
 
 
-def grandine(dati_poh, soglia=SOGLIA_GRANDINE):
-    """Posizioni delle zone con probabilita' di grandine >= soglia: [{'ora','lat','lon','poh'}]."""
+def grandine(dati_poh, radar=None, soglia=SOGLIA_GRANDINE, pioggia_minima=10.0):
+    """Posizioni delle zone con probabilita' di grandine >= soglia: [{'ora','lat','lon','poh'}].
+    Una zona viene accettata solo se nello stesso istante il radar vede li' pioggia intensa (almeno 10 mm/h):
+    senza un temporale non puo' esserci grandine (cosi' si scartano gli echi falsi)."""
     out = []
     if not dati_poh:
         return out
     g = dati_poh["griglia"]
+    radar_t = dict(zip(radar["tempi"], radar["campi"])) if radar else {}
     for t, campo in zip(dati_poh["tempi"], dati_poh["campi"]):
         a = np.asarray(campo, dtype="float64")
         if np.nanmax(a) <= 1.0 + 1e-6 and np.nanmax(a) > 0:
@@ -151,6 +159,16 @@ def grandine(dati_poh, soglia=SOGLIA_GRANDINE):
                 continue
             r, c = ndimage.center_of_mass(zona)
             lon, lat = g.proj.indietro(g.x0 + c * g.dx, g.y0 - r * g.dy)
+            if radar:
+                rc = radar_t.get(t)
+                if rc is None:
+                    continue
+                rg = radar["griglia"]
+                cc, rr = rg.indici(np.array([lon]), np.array([lat]))
+                cc, rr = int(round(float(cc[0]))), int(round(float(rr[0])))
+                finestra = np.nan_to_num(rc[max(0, rr - 5):rr + 6, max(0, cc - 5):cc + 6])
+                if finestra.size == 0 or finestra.max() < pioggia_minima:
+                    continue
             out.append({"ora": t, "lat": round(float(lat), 4), "lon": round(float(lon), 4), "poh": int(round(float(np.nanmax(a[zona])))),
                         "km2": int(zona.sum() * g.dx * g.dy / 1e6)})
     return out

@@ -433,7 +433,7 @@ def main():
     if Path(f"{a.dati}/grandine.pkl").exists():
         with open(f"{a.dati}/grandine.pkl", "rb") as f:
             gr = pickle.load(f)
-    indice["grandine"] = tipo_mod.grandine(gr)
+    indice["grandine"] = tipo_mod.grandine(gr, radar)
     indice["soglie_neve"], indice["colori_neve"] = SOGLIE_NEVE, COLORI_NEVE
     indice["soglie_mista"], indice["colori_mista"] = SOGLIE_MISTA, COLORI_MISTA
     # tipo a Nerola (per il riassunto)
