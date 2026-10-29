@@ -48,6 +48,9 @@ from scipy import ndimage
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import disegna  # noqa: E402
+import nubi  # noqa: E402
+import previsione_nubi  # noqa: E402
+import riassunto  # noqa: E402
 
 WMS = "https://view.eumetsat.int/geoserver/wms"
 BBOX = (11.30, 14.25, 41.05, 43.20)          # lon_min, lon_max, lat_min, lat_max (= zona Lazio, la Sabina e' dentro)
@@ -62,10 +65,10 @@ STRATI = {
     "geo": ("mtg_fd:rgb_geocolour", "", 1.4, False),
     "lampi": ("mtg_fd:li_afa", "", 0, False),
 }
-PRODOTTI = [("sandwich", "Radar + satellite"), ("visibile", "Visibile HD"), ("colori", "Colori reali"),
-            ("infrarosso", "Infrarosso"), ("topnubi", "Top nubi")]
+# prodotti "per esperti" (oltre alla mappa con le nubi, che e' il prodotto principale)
+PRODOTTI = [("visibile", "Visibile HD"), ("colori", "Colori reali"), ("infrarosso", "Infrarosso"), ("topnubi", "Top nubi")]
 # cambiando VERSIONE tutte le immagini vengono ridisegnate (serve quando cambia lo stile)
-VERSIONE = "v2"
+VERSIONE = "v3"
 TARATURA_DEFAULT = [40.0 - g * 110.0 / 255.0 for g in range(256)]   # usata solo se non c'e' mai stata una taratura
 
 
@@ -342,11 +345,50 @@ def jpeg(rgb, percorso):
 
 # --------------------------------------------------------------------------------------------- tutto
 
+def strato_nubi(alfa, lum, T, pk):
+    """Nubi e loro ombra come immagine trasparente (RGBA 0-255), da mettere sopra la mappa."""
+    a = np.clip(np.nan_to_num(alfa), 0, 1)
+    dy, dx = 2.0 / pk, 1.4 / pk                      # ombra spostata di circa 2 km a sud e 1,4 km a est
+    om = ndimage.gaussian_filter(ndimage.shift(a, (dy, dx), order=1, mode="nearest"), max(1.0, 0.8 / pk))
+    s = 0.40 * om
+    A = a + s * (1 - a)
+    lum = np.clip(np.nan_to_num(lum, nan=0.85), 0, 1)
+    rgb = np.stack([lum, lum, lum], axis=-1)
+    if T is not None:
+        freddo = np.clip((-25.0 - np.nan_to_num(T, nan=0.0)) / 40.0, 0, 1)[..., None]
+        rgb = rgb * (1 - 0.10 * freddo) + np.array([0.86, 0.92, 1.0]) * 0.10 * freddo
+    rgb = rgb * (a / np.maximum(A, 1e-6))[..., None]   # dove c'e' solo ombra il colore e' nero (trasparente)
+    out = np.zeros(a.shape + (4,), dtype=np.uint8)
+    out[..., :3] = np.clip(rgb * 255, 0, 255).astype(np.uint8)
+    out[..., 3] = np.clip(A * 255, 0, 255).astype(np.uint8)
+    return out
+
+
+def webp(rgba, percorso, qualita=72):
+    Image.fromarray(rgba, "RGBA").save(percorso, "WEBP", quality=qualita, method=4)
+
+
+def campi_zona(cache, t, tab, mappa_b, z, pk):
+    """Temperatura, riflettanza, nuvolosita' e luminosita' delle nubi sui pixel della zona."""
+    g = leggi(cache, "ir", t)
+    if g is None:
+        return None
+    T = a_temp(disegna.ricampiona(sfuma(g, STRATI["ir"][2]), mappa_b), tab)
+    cosz = coseno_zenitale(t, z.lon, z.lat)
+    v = leggi(cache, "vis", t)
+    vis = disegna.ricampiona(sfuma(v, STRATI["vis"][2]), mappa_b) if v is not None else None
+    R = riflettanza(vis, cosz) if vis is not None else None
+    alfa, lum = nubi.copertura(T, R, giorno(cosz), pk)
+    return {"T": T, "vis": vis, "cosz": cosz, "alfa": alfa, "lum": lum}
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--cache", required=True)
     ap.add_argument("--dati", required=True)
     ap.add_argument("--out", required=True)
+    ap.add_argument("--nowcast", required=True)
+    ap.add_argument("--wrf", default="")
     ap.add_argument("--precedente", default="")
     ap.add_argument("--senza-scarico", action="store_true", help="usa solo quello che c'e' gia' in cache (prove)")
     a = ap.parse_args()
@@ -359,6 +401,8 @@ def main():
         disponibili = aggiorna_cache(cache)
     with open(f"{a.dati}/radar.pkl", "rb") as f:
         radar = pickle.load(f)
+    with open(a.nowcast, "rb") as f:
+        nc = pickle.load(f)
     dpc = None
     if Path(f"{a.dati}/satellite.pkl").exists():
         with open(f"{a.dati}/satellite.pkl", "rb") as f:
@@ -379,87 +423,196 @@ def main():
         tab = TARATURA_DEFAULT
         info_tar["fonte"] = "valori di partenza (mai tarato finora)"
     (cache / "taratura.json").write_text(json.dumps({"tabella": tab, "info": info_tar}))
-    (out).mkdir(parents=True, exist_ok=True)
+    out.mkdir(parents=True, exist_ok=True)
     (out / "satellite_taratura.json").write_text(json.dumps({"tabella": tab, "info": info_tar}))
     print("taratura infrarosso:", info_tar)
+    wrf_prev = None
+    if a.wrf and Path(a.wrf).exists():
+        try:
+            import wrf as wrf_mod
+            wrf_prev = wrf_mod.PrevisioneWRF(a.wrf)
+        except Exception as e:  # noqa: BLE001
+            print("ATTENZIONE: WRF non leggibile per le nubi:", e, file=sys.stderr)
 
-    tempi_radar = {da_iso(t): c for t, c in zip(radar["tempi"], radar["campi"])}
-    lon_b, lat_b = lonlat_bbox()
+    t0 = da_iso(nc["tempi"][0])
     istanti = disponibili.get("ir", [])
     indice = {"prodotti": PRODOTTI, "taratura": info_tar, "zone": {}}
-    for chiave, cfg in disegna.AREE.items():
-        z = disegna.Zona(chiave, cfg)
+
+    # ---- fulmini (ultime 2 ore)
+    fulmini = []
+    for t in disponibili.get("lampi", []):
+        im = leggi(cache, "lampi", t)
+        if im is None:
+            continue
+        for fl in riassunto.fulmini_da_immagine(im, BBOX, LARGHEZZA, ALTEZZA):
+            fl["ora"] = iso(t)
+            fl["t"] = t
+            fulmini.append(fl)
+    indice["fulmini"] = [{k: v for k, v in fl.items() if k != "t"} for fl in fulmini]
+
+    # ---- immagini osservate, zona per zona
+    zone = {k: disegna.Zona(k, c) for k, c in disegna.AREE.items()}
+    mezza = {}      # Lazio a meta' definizione: istante -> (alfa, lum), per la previsione delle nubi
+    copertura_oss = {}
+    for chiave, z in zone.items():
         cart = out / chiave / "sat"
         cart.mkdir(parents=True, exist_ok=True)
-        # dalla griglia di EUMETView ai pixel della zona
+        pk = nubi.passo_km(z)
         mx = ((z.lon - BBOX[0]) / (BBOX[1] - BBOX[0]) * LARGHEZZA - 0.5).astype("float32")
         my = ((BBOX[3] - z.lat) / (BBOX[3] - BBOX[2]) * ALTEZZA - 0.5).astype("float32")
         mappa_b = (mx, my)
-        mappa_r = z.mappa_da(radar["griglia"])
-        voce = {p: [] for p, _ in PRODOTTI}
+        voce = {"nubi": [], "nubiprev": [], "esperti": {p: [] for p, _ in PRODOTTI}}
         fatti = 0
         for t in istanti:
             nomi = {p: f"{p}_{VERSIONE}_{t:%Y%m%d_%H%M}.jpg" for p, _ in PRODOTTI}
-            # il radar dello stesso istante deve esserci per il "sandwich", altrimenti lo si rifara' al prossimo giro
-            r = tempi_radar.get(t)
+            nomi["nubi"] = f"nubi_{VERSIONE}_{t:%Y%m%d_%H%M}.webp"
+            serve_campo = chiave == "lazio" and t in istanti[-4:]
             gia = prec and all((prec / chiave / "sat" / n).exists() for n in nomi.values()) \
                 and not (prec / chiave / "sat" / f"rifare_{t:%Y%m%d_%H%M}").exists()
+            cz = None
             if gia:
-                for p, n in nomi.items():
+                for n in nomi.values():
                     shutil.copy2(prec / chiave / "sat" / n, cart / n)
-                    voce[p].append({"file": f"sat/{n}", "ora": iso(t)})
-                continue
-            g = leggi(cache, "ir", t)
-            if g is None:
-                continue
-            ir = disegna.ricampiona(sfuma(g, STRATI["ir"][2]), mappa_b)
-            T = a_temp(ir, tab)
-            cosz = coseno_zenitale(t, z.lon, z.lat)
-            vis = leggi(cache, "vis", t)
-            vis = disegna.ricampiona(sfuma(vis, STRATI["vis"][2]), mappa_b) if vis is not None else None
-            lampi = leggi(cache, "lampi", t)
-            if lampi is not None:
-                lampi = np.stack([cv2.remap(lampi[..., c], mx, my, cv2.INTER_NEAREST, borderMode=cv2.BORDER_CONSTANT, borderValue=0)
-                                  for c in range(4)], axis=-1)
-            # 1 sandwich
-            rgb = sandwich(vis, T, cosz)
-            if r is not None:
-                rgb = sovrapponi(rgb, pioggia_rgba(disegna.ricampiona(r, mappa_r)), 0.9)
-            if lampi is not None:
-                rgb = sovrapponi(rgb, lampi)
-            jpeg(rgb, cart / nomi["sandwich"])
-            # 2 visibile (di notte: infrarosso)
-            irg = np.clip((35.0 - T) / 105.0, 0, 1) ** 0.9
-            w = giorno(cosz)
-            if vis is not None:
-                v = np.clip((riflettanza(vis, cosz) - 0.10) / 0.72, 0, 1) ** 0.8
-                gv = w * v + (1 - w) * irg
             else:
-                gv = irg
-            jpeg(np.repeat(gv[..., None], 3, axis=-1), cart / nomi["visibile"])
-            # 3 colori reali
-            geo = leggi(cache, "geo", t)
-            if geo is not None:
-                geo = sfuma(geo, STRATI["geo"][2])
-                geo = np.stack([disegna.ricampiona(geo[..., c], mappa_b) for c in range(3)], axis=-1)
-                jpeg(np.nan_to_num(geo), cart / nomi["colori"])
-            # 4 infrarosso
-            jpeg(np.repeat(irg[..., None], 3, axis=-1), cart / nomi["infrarosso"])
-            # 5 top nubi
-            rgb = scala_topnubi(T)
-            if lampi is not None:
-                rgb = sovrapponi(rgb, lampi)
-            jpeg(rgb, cart / nomi["topnubi"])
-            fatti += 1
-            completo = r is not None and geo is not None
-            for p, n in nomi.items():
-                if (cart / n).exists():
-                    voce[p].append({"file": f"sat/{n}", "ora": iso(t)})
-            if not completo:
-                # mancava qualcosa (radar o colori): si rifara' al prossimo giro
-                (cart / f"rifare_{t:%Y%m%d_%H%M}").write_text("")
+                cz = campi_zona(cache, t, tab, mappa_b, z, pk)
+                if cz is None:
+                    continue
+                T, vis, cosz = cz["T"], cz["vis"], cz["cosz"]
+                webp(strato_nubi(cz["alfa"], cz["lum"], T, pk), cart / nomi["nubi"])
+                irg = np.clip((35.0 - T) / 105.0, 0, 1) ** 0.9
+                w = giorno(cosz)
+                if vis is not None:
+                    v = np.clip((riflettanza(vis, cosz) - 0.10) / 0.72, 0, 1) ** 0.8
+                    gv = w * v + (1 - w) * irg
+                else:
+                    gv = irg
+                jpeg(np.repeat(gv[..., None], 3, axis=-1), cart / nomi["visibile"])
+                geo = leggi(cache, "geo", t)
+                if geo is not None:
+                    geo = sfuma(geo, STRATI["geo"][2])
+                    geo = np.stack([disegna.ricampiona(geo[..., c], mappa_b) for c in range(3)], axis=-1)
+                    jpeg(np.nan_to_num(geo), cart / nomi["colori"])
+                else:
+                    (cart / f"rifare_{t:%Y%m%d_%H%M}").write_text("")
+                jpeg(np.repeat(irg[..., None], 3, axis=-1), cart / nomi["infrarosso"])
+                jpeg(scala_topnubi(T), cart / nomi["topnubi"])
+                fatti += 1
+            if serve_campo:
+                if cz is None:
+                    cz = campi_zona(cache, t, tab, mappa_b, z, pk)
+                if cz is not None:
+                    al = cv2.resize(np.nan_to_num(cz["alfa"]).astype("float32"), (z.W // 2, z.H // 2), interpolation=cv2.INTER_AREA)
+                    lu = cv2.resize(np.nan_to_num(cz["lum"], nan=0.85).astype("float32"), (z.W // 2, z.H // 2), interpolation=cv2.INTER_AREA)
+                    mezza[t] = (al.astype("float64"), lu.astype("float64"))
+            voce["nubi"].append({"file": f"sat/{nomi['nubi']}", "ora": iso(t)})
+            for p, _ in PRODOTTI:
+                if (cart / nomi[p]).exists():
+                    voce["esperti"][p].append({"file": f"sat/{nomi[p]}", "ora": iso(t)})
         indice["zone"][chiave] = voce
         print(f"{z.nome}: satellite {len(istanti)} istanti, disegnati ora {fatti}")
+
+    # ---- previsione delle nubi (fino a +6 ore da adesso)
+    zl = zone["lazio"]
+    pk_mezza = nubi.passo_km(zl) * 2
+    lon_m = cv2.resize(zl.lon.astype("float32"), (zl.W // 2, zl.H // 2), interpolation=cv2.INTER_AREA).astype("float64")
+    lat_m = cv2.resize(zl.lat.astype("float32"), (zl.W // 2, zl.H // 2), interpolation=cv2.INTER_AREA).astype("float64")
+    prev_nubi, info_nubi = {}, {}
+    seq = sorted(mezza)
+    seq = [t for t in seq if (seq[-1] - t).total_seconds() <= 1800 and (seq[-1] - t).total_seconds() % 600 == 0] if seq else []
+    if seq:
+        t_ult = seq[-1]
+        fine = t0 + timedelta(minutes=360)
+        tempi_voluti = []
+        t = t_ult + timedelta(minutes=10)
+        while t <= fine:
+            tempi_voluti.append(t)
+            t += timedelta(minutes=10)
+        try:
+            prev_nubi, info_nubi = previsione_nubi.prevedi([mezza[t] for t in seq], t_ult, tempi_voluti, wrf_prev, lon_m, lat_m, pk_mezza)
+        except Exception as e:  # noqa: BLE001
+            info_nubi = {"errore": str(e)[:300]}
+            print("ATTENZIONE: previsione nubi non riuscita:", e, file=sys.stderr)
+        print("previsione nubi:", info_nubi)
+        for chiave, z in zone.items():
+            cart = out / chiave / "sat"
+            pk = nubi.passo_km(z)
+            # dai pixel della zona alla griglia Lazio a meta' definizione
+            jx = (((z.lon - zl.lon0) / (zl.lon1 - zl.lon0) * zl.W - 0.5) / 2).astype("float32")
+            iy = (((zl.lat1 - z.lat) / (zl.lat1 - zl.lat0) * zl.H - 0.5) / 2).astype("float32")
+            for t, (al, lu) in sorted(prev_nubi.items()):
+                A = cv2.remap(al.astype("float32"), jx, iy, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE)
+                L = cv2.remap(lu.astype("float32"), jx, iy, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE)
+                # le nubi previste sono per natura meno dettagliate: immagine a meta' definizione (file 4 volte piu' leggero)
+                A = cv2.resize(A, (z.W // 2, z.H // 2), interpolation=cv2.INTER_AREA)
+                L = cv2.resize(L, (z.W // 2, z.H // 2), interpolation=cv2.INTER_AREA)
+                n = f"nubiprev_{t:%Y%m%d_%H%M}.webp"
+                webp(strato_nubi(A, L, None, pk * 2), cart / n, qualita=65)
+                indice["zone"][chiave]["nubiprev"].append({"file": f"sat/{n}", "ora": iso(t),
+                                                           "minuti_dal_satellite": int((t - t_ult).total_seconds() // 60)})
+    indice["previsione_nubi"] = info_nubi
+
+    # ---- griglia per "tocca la mappa" e riassunto di Nerola
+    passi = len(nc["tempi"])
+    g_radar = nc["griglia"]
+    lon_g = riassunto.G_LON0 + (np.arange(riassunto.G_NX) + 0.5) * riassunto.G_PASSO
+    lat_g = riassunto.G_LAT1 - (np.arange(riassunto.G_NY) + 0.5) * riassunto.G_PASSO
+    LO, LA = np.meshgrid(lon_g, lat_g)
+    cr, rr = g_radar.indici(LO, LA)
+    mappa_g = (np.asarray(cr, dtype="float32"), np.asarray(rr, dtype="float32"))
+    pioggia_g = np.zeros((passi, riassunto.G_NY, riassunto.G_NX), dtype=np.uint8)
+    for k in range(passi):
+        # massimo locale (circa 3 km) prima di campionare: un rovescio piccolo non deve sparire
+        campo = ndimage.maximum_filter(np.nan_to_num(nc["campi"][k]), size=3)
+        v = disegna.ricampiona(campo, mappa_g)
+        pioggia_g[k] = np.clip(np.nan_to_num(v) * 10, 0, 255).astype(np.uint8)
+    nubi_g = np.zeros_like(pioggia_g)
+    jx = (((LO - zl.lon0) / (zl.lon1 - zl.lon0) * zl.W - 0.5) / 2).astype("float32")
+    iy = (((zl.lat1 - LA) / (zl.lat1 - zl.lat0) * zl.H - 0.5) / 2).astype("float32")
+    ultimo_oss = mezza[seq[-1]][0] if seq else None
+    nubi_nerola = []
+    jn = ((riassunto.NEROLA[1] - zl.lon0) / (zl.lon1 - zl.lon0) * zl.W - 0.5) / 2
+    inr = ((zl.lat1 - riassunto.NEROLA[0]) / (zl.lat1 - zl.lat0) * zl.H - 0.5) / 2
+    raggio = max(1, int(round(3.0 / pk_mezza)))
+    def a_nerola(campo):
+        j, i = int(round(jn)), int(round(inr))
+        return float(np.nanmean(campo[max(0, i - raggio):i + raggio + 1, max(0, j - raggio):j + raggio + 1]))
+    for k in range(passi):
+        tk = t0 + timedelta(minutes=10 * k)
+        campo = None
+        if prev_nubi:
+            vicino = min(prev_nubi, key=lambda t: abs((t - tk).total_seconds()))
+            if abs((vicino - tk).total_seconds()) <= 300:
+                campo = prev_nubi[vicino][0]
+        if campo is None:
+            campo = ultimo_oss
+        if campo is not None:
+            nubi_g[k] = np.clip(cv2.remap(campo.astype("float32"), jx, iy, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE) * 100,
+                                0, 100).astype(np.uint8)
+            nubi_nerola.append((tk, a_nerola(campo)))
+    if ultimo_oss is not None and nubi_nerola:
+        nubi_nerola[0] = (t0, a_nerola(ultimo_oss))
+    (out / "griglia.bin").write_bytes(pioggia_g.tobytes() + nubi_g.tobytes())
+    indice["griglia"] = {"lon0": riassunto.G_LON0, "lat1": riassunto.G_LAT1, "passo": riassunto.G_PASSO,
+                         "nx": riassunto.G_NX, "ny": riassunto.G_NY, "passi": passi, "t0": iso(t0), "minuti": 10,
+                         "file": "griglia.bin", "contenuto": "pioggia mm/h x10 [passi,ny,nx] poi nuvolosita % [passi,ny,nx], uint8"}
+    # pioggia a Nerola (massimo entro 3 km) e pioggia vicina adesso
+    cN, rN = g_radar.indici(np.array([riassunto.NEROLA[1]]), np.array([riassunto.NEROLA[0]]))
+    cN, rN = int(round(float(cN[0]))), int(round(float(rN[0])))
+    pn = [float(np.nanmax(np.nan_to_num(nc["campi"][k][max(0, rN - 3):rN + 4, max(0, cN - 3):cN + 4]))) for k in range(passi)]
+    vicina = None
+    adesso = np.nan_to_num(nc["campi"][0])
+    yy, xx = np.nonzero(adesso >= 0.2)
+    if len(yy):
+        d = np.hypot((yy - rN) * g_radar.dy / 1000, (xx - cN) * g_radar.dx / 1000)
+        k = int(np.argmin(d))
+        if d[k] <= 40:
+            lo_p, la_p = g_radar.proj.indietro(g_radar.x0 + xx[k] * g_radar.dx, g_radar.y0 - yy[k] * g_radar.dy)
+            vicina = (float(d[k]), riassunto.verso(*riassunto.NEROLA, float(la_p), float(lo_p)), float(adesso[yy[k], xx[k]]))
+    indice["nerola"] = riassunto.riassunto_nerola(t0, pn, vicina, nubi_nerola, fulmini, None, info_nubi)
+    indice["nerola"]["pioggia_10min"] = [round(v, 1) for v in pn]
+    indice["nerola"]["nubi_10min"] = [round(c, 2) for _, c in nubi_nerola]
+    indice["t0"] = iso(t0)
+    print("Nerola:", indice["nerola"])
     (out / "satellite.json").write_text(json.dumps(indice, ensure_ascii=False, separators=(",", ":")))
 
 

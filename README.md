@@ -17,9 +17,14 @@ ogni 10 minuti sui computer di GitHub. Fa parte di [meteonerola.it](https://www.
    I pesi non sono fissi: sono calcolati ogni volta dall'affidabilità misurata di ciascuno.
 6. **Si dà il voto da solo**: ogni previsione viene confrontata con quello che il radar vede davvero 30, 60, 120 e
    180 minuti dopo, e messa a confronto con la previsione più banale ("la pioggia resta dov'è").
-7. **Disegna** le mappe (rilievo, confini, paesi, Nerola) e la pagina web con l'animazione. Satellite in 5 versioni:
-   radar + satellite (stile "sandwich"), visibile HD, colori reali, infrarosso, top nubi (temperature tarate ogni volta
-   con l'infrarosso della Protezione Civile).
+7. **Nubi su mappa vera**: le nubi vengono separate dal suolo (piu' chiare nel visibile, piu' fredde nell'infrarosso)
+   e disegnate bianche, con la loro ombra, sopra una mappa a colori naturali con il rilievo (`nubi.py`).
+8. **Previsione delle nubi 0-6 ore** con lo stesso metodo della pioggia; il WRF entra con la nuvolosita' ricavata dalla
+   radiazione infrarossa al suolo (`previsione_nubi.py`, `wrf.py`).
+9. **Nerola adesso**: pioggia in arrivo, fulmine piu' vicino, cielo, in frasi semplici; e una griglia per sapere la
+   previsione toccando un punto qualsiasi della mappa (`riassunto.py`).
+10. **Pagina**: un'unica mappa con strati (nubi, pioggia, fulmini), animazione sfumata da -2 a +6 ore, zoom, copia e
+   salva; per esperti visibile HD, colori reali, infrarosso e top nubi.
 
 **Come gira:** un avvio lavora per circa 5 ore e 45 minuti facendo un giro ogni 10 minuti, poi fa ripartire se stesso
 (gli avvii a orario di GitHub sono troppo irregolari per un servizio ogni 10 minuti).
@@ -39,6 +44,7 @@ I dettagli scientifici (metodi e riferimenti) sono scritti all'inizio del file `
 | `scarica.py` | scarica radar e satellite dalla Protezione Civile e li ritaglia sull'Italia centrale |
 | `fonti.py` | come si "parla" con il servizio della Protezione Civile |
 | `geo.py` | legge i file GeoTIFF e converte le coordinate (proiezione del radar ↔ latitudine/longitudine) |
+| `nubi.py`, `previsione_nubi.py`, `riassunto.py` | nubi su mappa, previsione delle nubi, Nerola adesso e fulmini |
 | `satellite.py` | satellite ad alta definizione (EUMETSAT MTG): scarico, taratura delle temperature, 5 prodotti |
 | `giro.sh` | un giro completo (scarico, previsione, pagella, immagini) |
 | `wrf.py` | legge l'ultima previsione di wrf-nerola e la porta sulla griglia del radar |

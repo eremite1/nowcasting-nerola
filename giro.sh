@@ -23,13 +23,14 @@ python "$QUI/verifica.py" --dati "$DATI" --nowcast "$DATI/nowcast.pkl" --precede
 python "$QUI/disegna.py" --dati "$DATI" --nowcast "$DATI/nowcast.pkl" --sfondo "${SFONDO:-}" --out "$NUOVO" >> "$REG" 2>&1
 
 # il satellite non deve mai bloccare il radar: se non riesce, si tengono le immagini del giro precedente
-if ! timeout 420 python "$QUI/satellite.py" --cache "${CACHE_SAT:-$DATI/cache_sat}" --dati "$DATI" --precedente "$PUB" \
-     --out "$NUOVO" >> "$REG" 2>&1; then
+if ! timeout 480 python "$QUI/satellite.py" --cache "${CACHE_SAT:-$DATI/cache_sat}" --dati "$DATI" --precedente "$PUB" \
+     --nowcast "$DATI/nowcast.pkl" --wrf "${WRF_FILE:-}" --out "$NUOVO" >> "$REG" 2>&1; then
   echo "ATTENZIONE: satellite non aggiornato in questo giro" >> "$REG"
   for z in lazio sabina; do
     [ -d "$PUB/$z/sat" ] && cp -a "$PUB/$z/sat" "$NUOVO/$z/" || true
   done
   [ -f "$PUB/satellite.json" ] && cp "$PUB/satellite.json" "$NUOVO/" || true
+  [ -f "$PUB/griglia.bin" ] && cp "$PUB/griglia.bin" "$NUOVO/" || true
 fi
 
 cp "$QUI/pagina/index.html" "$NUOVO/index.html"

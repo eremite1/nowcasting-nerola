@@ -36,7 +36,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import sfondo as sfondo_mod  # noqa: E402
 
 ROMA = ZoneInfo("Europe/Rome")
-NEROLA = (42.13, 12.77)
+NEROLA = (42.1607, 12.7856)
 AREE = {
     "lazio": {"nome": "Lazio", "riquadro": (11.30, 14.25, 41.05, 43.20), "larghezza": 860, "dettaglio": False},
     "sabina": {"nome": "Sabina", "riquadro": (12.34, 13.20, 41.81, 42.45), "larghezza": 860, "dettaglio": True},
@@ -300,8 +300,15 @@ def confini(zona, sf, percorso, massimo=40, scuro=False):
 
 
 def fondo(zona, dem, percorso):
-    rgb = (rilievo(zona, dem) * 255).astype(np.uint8)
-    Image.fromarray(rgb, "RGB").quantize(256, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE).save(percorso, optimize=True)
+    """Mappa a colori naturali con il rilievo (vedi nubi.mappa_naturale)."""
+    import nubi
+    q = nubi.dem_su_zona(dem, zona) if dem else None
+    if q is None:
+        rgb = np.zeros((zona.H, zona.W, 3))
+        rgb[:] = (0.50, 0.60, 0.38)
+    else:
+        rgb = nubi.mappa_naturale(q, q <= 0.5, nubi.passo_km(zona))
+    Image.fromarray((np.clip(rgb, 0, 1) * 255).astype(np.uint8), "RGB").save(percorso, quality=90, optimize=True)
 
 
 # ------------------------------------------------------------------------------------------ immagine completa
@@ -313,7 +320,7 @@ def ora_locale(iso):
 
 def composito(cartella, file_pioggia, titolo, sottotitolo, percorso):
     """fondo + pioggia + confini + una fascia con titolo e legenda: immagine unica pronta da pubblicare."""
-    base = Image.open(cartella / "fondo.png").convert("RGBA")
+    base = Image.open(cartella / "mappa.jpg").convert("RGBA")
     if file_pioggia:
         base.alpha_composite(Image.open(file_pioggia).convert("RGBA"))
     base.alpha_composite(Image.open(cartella / "confini.png").convert("RGBA"))
@@ -373,8 +380,9 @@ def main():
         cart = out / chiave
         for sotto in ("radar", "previsione"):
             (cart / sotto).mkdir(parents=True, exist_ok=True)
-        fondo(z, dem, cart / "fondo.png")
-        confini(z, sf, cart / "confini.png", massimo=45 if z.dettaglio else 20, scuro=True)
+        fondo(z, dem, cart / "mappa.jpg")
+        confini(z, sf, cart / "confini.png", massimo=45 if z.dettaglio else 20)
+        confini(z, sf, cart / "confini_bianchi.png", massimo=45 if z.dettaglio else 20, scuro=True)
         voce = {"nome": z.nome, "larghezza": z.W, "altezza": z.H, "riquadro": [z.lon0, z.lon1, z.lat0, z.lat1],
                 "radar": [], "previsione": []}
         mappa = z.mappa_da(radar["griglia"])

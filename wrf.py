@@ -28,8 +28,36 @@ class PrevisioneWRF:
         durate = np.array([(self.tempi[i + 1] - self.tempi[i]).total_seconds() / 3600 for i in range(len(self.tempi) - 1)])
         self.tassi = tassi / durate[:, None, None]
         self.corsa = self.tempi[0]
+        self.nubi = self._nuvolosita(z) if all(k in z.files for k in ("GLW", "T2", "Q2", "PSFC")) else None
         self.u10 = np.asarray(z["U10"], dtype="float64") if "U10" in z.files else None
         self.v10 = np.asarray(z["V10"], dtype="float64") if "V10" in z.files else None
+
+    @staticmethod
+    def _nuvolosita(z):
+        """Nuvolosita' (0-1) del WRF ricavata dalla radiazione infrarossa che arriva al suolo (GLW).
+        Con il cielo sereno l'aria irraggia poco: emissivita' di Brutsaert (1975), eps = 1,24 (e/T)^(1/7), con e la
+        pressione del vapore in hPa e T in kelvin. Una nube irraggia come un corpo nero alla temperatura dell'aria.
+        Quindi GLW = (1-c) eps sigma T^4 + c sigma T^4  ->  c = (GLW - eps sigma T^4) / (sigma T^4 (1 - eps)).
+        (Metodo simile a Crawford e Duchon 1999.) Valori per ogni istante del modello (non medie orarie)."""
+        sigma = 5.670374e-8
+        T = np.asarray(z["T2"], dtype="float64")
+        q = np.asarray(z["Q2"], dtype="float64")
+        p = np.asarray(z["PSFC"], dtype="float64") / 100.0
+        e = q * p / (0.622 + 0.378 * q)
+        eps = np.clip(1.24 * (np.maximum(e, 0.01) / T) ** (1 / 7), 0.4, 0.99)
+        nero = sigma * T ** 4
+        c = (np.asarray(z["GLW"], dtype="float64") - eps * nero) / (nero * (1 - eps))
+        return np.clip(c, 0, 1)
+
+    def nuvolosita(self, t):
+        """Nuvolosita' prevista dal WRF all'istante t (interpolazione lineare tra gli istanti del modello), None se fuori."""
+        if self.nubi is None or not (self.tempi[0] <= t <= self.tempi[-1]):
+            return None
+        s = np.array([(c - self.tempi[0]).total_seconds() for c in self.tempi])
+        x = (t - self.tempi[0]).total_seconds()
+        i = int(np.clip(np.searchsorted(s, x) - 1, 0, len(s) - 2))
+        w = (x - s[i]) / (s[i + 1] - s[i])
+        return self.nubi[i] * (1 - w) + self.nubi[i + 1] * w
 
     def copre(self, t):
         return self.centri[0] <= t <= self.centri[-1]
