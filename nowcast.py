@@ -452,7 +452,7 @@ def calcola(radar, wrf_prev=None, ponte_fn=None, pagella=None):
     db = lambda r: np.where(np.nan_to_num(r) >= SOGLIA, 10 * np.log10(np.maximum(np.nan_to_num(r), SOGLIA)), secco)  # noqa: E731
     # I campi del WRF sono medie orarie: tra un'ora e l'altra non si mescolano (una cella che si sposta "si dimezzerebbe"
     # a meta' strada) ma si fanno scorrere lungo il loro movimento (interpolazione con compensazione del moto).
-    campi_db = {}
+    campi_db, mov_orari = {}, []
     if wrf_evo and corr_spost is not None:
         orari = []
         for c in wrf_prev.centri:
@@ -463,7 +463,25 @@ def calcola(radar, wrf_prev=None, ponte_fn=None, pagella=None):
         for (ca, a), (cb, b) in zip(orari[:-1], orari[1:]):
             sa = ndimage.gaussian_filter(np.nan_to_num(a, nan=secco), 4)
             sb = ndimage.gaussian_filter(np.nan_to_num(b, nan=secco), 4)
-            flussi.append(fusione.flusso(sa, sb, secco, 25.0, patch=21))
+            fu, fv = fusione.flusso(sa, sb, secco, 25.0, patch=21)
+            flussi.append((fu, fv))
+            # movimento per passo di 10 minuti: dove c'e' pioggia nel WRF quello misurato, altrove (sfumando) il vento
+            # in quota del WRF o, se manca, il movimento medio
+            peso = ((sa > secco + 3) | (sb > secco + 3)).astype("float64")
+            tm = ca + (cb - ca) / 2
+            vg = wrf_prev.vento_guida(tm)
+            if vg is not None:
+                gu, gv = evoluzione.vento_in_pixel(ponte_riempi(ponte.porta(vg[0])), ponte_riempi(ponte.porta(vg[1])), 1.0, 60)
+            else:
+                gu = np.full(sa.shape, (fu * peso).sum() / max(peso.sum(), 1.0))
+                gv = np.full(sa.shape, (fv * peso).sum() / max(peso.sum(), 1.0))
+            num_u = ndimage.gaussian_filter(fu * peso, 10); num_v = ndimage.gaussian_filter(fv * peso, 10)
+            den = ndimage.gaussian_filter(peso, 10)
+            a_ = np.clip(den / 0.3, 0, 1)
+            mu = a_ * np.divide(num_u, np.maximum(den, 1e-6)) + (1 - a_) * gu
+            mv = a_ * np.divide(num_v, np.maximum(den, 1e-6)) + (1 - a_) * gv
+            dt_passi = (cb - ca).total_seconds() / (PASSO_MIN * 60)
+            mov_orari.append((ca, cb, (mu / dt_passi).astype("float32"), (mv / dt_passi).astype("float32")))
         for k in range(0, passi + 1):
             t = t0 + timedelta(minutes=k * PASSO_MIN)
             for j in range(len(orari) - 1):
@@ -478,21 +496,24 @@ def calcola(radar, wrf_prev=None, ponte_fn=None, pagella=None):
                     break
     vento_info = "movimento misurato sul radar (il WRF non ha ancora il vento in quota)"
 
+    # Il movimento DEVE essere lo stesso con cui il WRF sposta la sua pioggia: se la pioggia vera si muovesse con un'altra
+    # velocita', la variazione presa dal WRF "nel punto di partenza" la farebbe sparire e ricomparire dove sta la pioggia
+    # del WRF (un salto all'indietro). Quindi: movimento delle zone di pioggia del WRF tra un'ora e l'altra (lo stesso
+    # usato per far scorrere il WRF tra le ore); dove il WRF non ha pioggia, il vento 850-500 hPa del WRF.
     def mov_wrf_passo(k):
         nonlocal vento_info
         t = t0 + timedelta(minutes=k * PASSO_MIN)
+        for (ca, cb, uu, vv) in mov_orari:
+            if ca <= t - timedelta(minutes=PASSO_MIN / 2) <= cb:
+                vento_info = "movimento della pioggia nel WRF (e vento 850-500 hPa del WRF dove non piove)"
+                return uu, vv
         vw = wrf_prev.vento_guida(t) if (wrf_prev is not None and ponte is not None) else None
         if vw is not None:
-            vento_info = "vento del WRF tra 850 e 500 hPa"
             return evoluzione.vento_in_pixel(ponte_riempi(ponte.porta(vw[0])), ponte_riempi(ponte.porta(vw[1])), 1.0, PASSO_MIN)
-        ora_k = (k - 1) // 6 * 6
-        if ora_k in mov_wrf:
-            vento_info = "spostamento della pioggia nel WRF"
-            return mov_wrf[ora_k]
         return None
 
     evo, evo_val, evo_info = evoluzione.evolvi(db(radar0), noto0, campi_db, (u_c, v_c), mov_wrf_passo if wrf_evo else None,
-                                               passi, PASSO_MIN, sigma=5.0, minimo=secco, massimo=23.0)
+                                               passi, PASSO_MIN, sigma=5.0, minimo=secco, massimo=23.0, tau_mov=1e-6)
     evol = [np.where(v, np.where(x > secco + 0.5, 10 ** (x / 10.0), 0.0), np.nan).astype("float32") for x, v in zip(evo, evo_val)]
     info["evoluzione"] = {**evo_info, "movimento": vento_info}
 

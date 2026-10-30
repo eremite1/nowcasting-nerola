@@ -151,15 +151,36 @@ def prevedi(campi, t_ultimo, tempi_voluti, wrf_prev, lon, lat, passo_km):
             if cw is not None:
                 campi_w[k] = cw
 
+        # le nubi vere si spostano con lo stesso movimento con cui il WRF sposta le sue (altrimenti la variazione presa
+        # dal WRF le farebbe sparire e ricomparire altrove); dove il WRF non ha nubi, il vento 850-500 hPa del WRF
+        riempi = lambda a: np.where(np.isfinite(a), a, np.nanmean(a) if np.isfinite(a).any() else 0.0)  # noqa: E731
+        mov_orari = []
+        for j_, ((ta, a), (tb, b)) in enumerate(zip(orari[:-1], orari[1:])):
+            fu, fv = flussi[j_]
+            peso = ((np.nan_to_num(a) > 0.15) | (np.nan_to_num(b) > 0.15)).astype("float64")
+            vg = wrf_prev.vento_guida(ta + (tb - ta) / 2)
+            passi_ora = (tb - ta).total_seconds() / (PASSO * 60)
+            if vg is not None:
+                gu, gv = evoluzione.vento_in_pixel(riempi(ponte.porta(vg[0])), riempi(ponte.porta(vg[1])), passo_km, PASSO)
+                gu, gv = gu * passi_ora, gv * passi_ora
+            else:
+                gu = np.full(a.shape, (fu * peso).sum() / max(peso.sum(), 1.0))
+                gv = np.full(a.shape, (fv * peso).sum() / max(peso.sum(), 1.0))
+            den = ndimage.gaussian_filter(peso, 8)
+            al = np.clip(den / 0.3, 0, 1)
+            mu = al * ndimage.gaussian_filter(fu * peso, 8) / np.maximum(den, 1e-6) + (1 - al) * gu
+            mv = al * ndimage.gaussian_filter(fv * peso, 8) / np.maximum(den, 1e-6) + (1 - al) * gv
+            mov_orari.append((ta, tb, mu / passi_ora, mv / passi_ora))
+
         def mov_wrf(k):
-            vg = wrf_prev.vento_guida(t_ultimo + timedelta(minutes=k * PASSO))
-            if vg is None:
-                return None
-            riempi = lambda a: np.where(np.isfinite(a), a, np.nanmean(a) if np.isfinite(a).any() else 0.0)  # noqa: E731
-            return evoluzione.vento_in_pixel(riempi(ponte.porta(vg[0])), riempi(ponte.porta(vg[1])), passo_km, PASSO)
+            t = t_ultimo + timedelta(minutes=k * PASSO - PASSO / 2)
+            for ta, tb, mu, mv in mov_orari:
+                if ta <= t <= tb:
+                    return mu, mv
+            return None
 
         evo, val, ev_info = evoluzione.evolvi(np.nan_to_num(alfa0), np.isfinite(alfa0), campi_w, (u, v), mov_wrf, passi, PASSO,
-                                              sigma=3.0, minimo=0.0, massimo=1.0)
+                                              sigma=3.0, minimo=0.0, massimo=1.0, tau_mov=1e-6)
         info["evoluzione"] = ev_info
         for t in tempi_voluti:
             k = int(round((t - t_ultimo).total_seconds() / 60 / PASSO))
