@@ -332,8 +332,19 @@ def calcola(radar, wrf_prev=None, ponte_fn=None, pagella=None):
             media_s = (U.sum() / P.sum(), V.sum() / P.sum())
             u_s = fusione.liscia_pesata(np.divide(U, P, out=np.zeros_like(U), where=P > 0), (P > 0).astype("float64"), 50, media_s[0])
             v_s = fusione.liscia_pesata(np.divide(V, P, out=np.zeros_like(V), where=P > 0), (P > 0).astype("float64"), 50, media_s[1])
+    # controllo: il movimento d'insieme su 60 minuti si confonde quando i temporali nascono e muoiono sul posto (sembra
+    # che "la pioggia si sposti" dove sta crescendo). Se non va d'accordo con il movimento misurato ogni 10 minuti
+    # (direzione diversa di oltre 60 gradi o velocita' piu' che doppia) non lo si usa.
+    if media_s is not None:
+        pz = np.nan_to_num(radar0) >= SOGLIA
+        mc = (float(u_c[pz].mean()), float(v_c[pz].mean())) if pz.sum() > 50 else (float(u_c.mean()), float(v_c.mean()))
+        vs_, vc_ = math.hypot(*media_s), math.hypot(*mc)
+        cosang = (media_s[0] * mc[0] + media_s[1] * mc[1]) / max(vs_ * vc_, 1e-9)
+        if vc_ > 0.3 and (cosang < 0.5 or vs_ > 2 * vc_ + 0.5):
+            info["movimento_sistema_scartato"] = True
+            u_s, v_s, media_s = None, None, None
     if u_s is None:
-        u_s, v_s = u_c.copy(), v_c.copy()
+        u_s, v_s = ndimage.gaussian_filter(u_c, 20), ndimage.gaussian_filter(v_c, 20)
     info["movimento"] = im
     if media_s is not None:
         kmh = math.hypot(*media_s) * 6.0
@@ -464,6 +475,8 @@ def calcola(radar, wrf_prev=None, ponte_fn=None, pagella=None):
             sa = ndimage.gaussian_filter(np.nan_to_num(a, nan=secco), 4)
             sb = ndimage.gaussian_filter(np.nan_to_num(b, nan=secco), 4)
             fu, fv = fusione.flusso(sa, sb, secco, 25.0, patch=21)
+            pz = ((sa > secco + 3) | (sb > secco + 3)).astype("float64")
+            fu, fv = fusione.liscia_pesata(fu, pz, 25), fusione.liscia_pesata(fv, pz, 25)
             flussi.append((fu, fv))
             # movimento per passo di 10 minuti: dove c'e' pioggia nel WRF quello misurato, altrove (sfumando) il vento
             # in quota del WRF o, se manca, il movimento medio
@@ -503,17 +516,25 @@ def calcola(radar, wrf_prev=None, ponte_fn=None, pagella=None):
     def mov_wrf_passo(k):
         nonlocal vento_info
         t = t0 + timedelta(minutes=k * PASSO_MIN)
-        for (ca, cb, uu, vv) in mov_orari:
-            if ca <= t - timedelta(minutes=PASSO_MIN / 2) <= cb:
-                vento_info = "movimento della pioggia nel WRF (e vento 850-500 hPa del WRF dove non piove)"
-                return uu, vv
         vw = wrf_prev.vento_guida(t) if (wrf_prev is not None and ponte is not None) else None
         if vw is not None:
-            return evoluzione.vento_in_pixel(ponte_riempi(ponte.porta(vw[0])), ponte_riempi(ponte.porta(vw[1])), 1.0, PASSO_MIN)
+            vento_info = "vento del WRF tra 850 e 500 hPa (campo liscio)"
+            gu, gv = evoluzione.vento_in_pixel(ponte_riempi(ponte.porta(vw[0])), ponte_riempi(ponte.porta(vw[1])), 1.0, PASSO_MIN)
+            return ndimage.gaussian_filter(gu, 30), ndimage.gaussian_filter(gv, 30)
         return None
 
-    evo, evo_val, evo_info = evoluzione.evolvi(db(radar0), noto0, campi_db, (u_c, v_c), mov_wrf_passo if wrf_evo else None,
-                                               passi, PASSO_MIN, sigma=5.0, minimo=secco, massimo=23.0, tau_mov=1e-6)
+    # movimento osservato del SISTEMA (gia' lisciato su 50 km), ancora piu' liscio: nessuna deformazione locale
+    # movimento misurato ogni 10 minuti sul radar, lisciato su circa 20 km: le forme si spostano intere, senza stirarsi.
+    # (Verificato su dati veri del 30/10: a +30 minuti CSI 0.56 contro 0.31 della persistenza.)
+    mov_oss_liscio = (ndimage.gaussian_filter(u_c, 20), ndimage.gaussian_filter(v_c, 20))
+    vento_info = "movimento misurato sul radar ogni 10 minuti (lisciato)"
+    # quanto pesa la variazione del WRF: accordo tra WRF corretto e radar adesso (correlazione dopo la correzione)
+    acc = wrf_info.get("correlazione_dopo") if wrf_info.get("usato") else None
+    peso_t = float(np.clip((acc or 0.0), 0.0, 0.9))
+    info["peso_evoluzione_wrf"] = round(peso_t, 2)
+    evo, evo_val, evo_info = evoluzione.evolvi(db(radar0), noto0, campi_db, mov_oss_liscio, mov_wrf_passo if wrf_evo else None,
+                                               passi, PASSO_MIN, sigma=12.0, minimo=secco, massimo=23.0, tau_mov=60.0,
+                                               peso_tendenza=peso_t, max_tendenza=12.0)
     evol = [np.where(v, np.where(x > secco + 0.5, 10 ** (x / 10.0), 0.0), np.nan).astype("float32") for x, v in zip(evo, evo_val)]
     info["evoluzione"] = {**evo_info, "movimento": vento_info}
 

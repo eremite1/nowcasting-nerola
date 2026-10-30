@@ -12,8 +12,11 @@ Ad ogni passo di 10 minuti, per ogni punto:
     umidita', moti verticali, convergenza, rilievo): e' cosi' che "tutti i parametri" vengono applicati alla realta'.
  3. Il WRF usato e' quello gia' corretto adesso con radar e satellite (posizione e intensita', vedi fusione.py),
     cosi' la variazione viene presa nel posto giusto.
-Nelle prime ore quindi la previsione e' la realta' di adesso con l'evoluzione del WRF; con il passare delle ore
-diventa sempre piu' simile al WRF corretto, in modo naturale (non con pesi decisi a mano).
+MOVIMENTO LISCIO: il campo di movimento deve essere liscio (le nubi e la pioggia si spostano come un insieme, non
+punto per punto), altrimenti sommando 36 passi le forme si stirano in strisce. Si usa il vento in quota del WRF
+(campo gia' liscio) o il movimento misurato su larga scala.
+QUANTO PESA IL WRF: la variazione presa dal WRF viene moltiplicata per l'accordo misurato adesso tra WRF corretto e
+osservazioni (correlazione, da 0 a 1): un WRF che oggi non ci prende non deforma la realta'.
 """
 import math
 
@@ -29,7 +32,7 @@ def _remap(campo, px, py, bordo):
 
 
 def evolvi(x0, noto0, campi_wrf, mov_oss, mov_wrf, passi, minuti_passo=10, sigma=5.0, minimo=None, tau_mov=30.0,
-           massimo=None):
+           massimo=None, peso_tendenza=1.0, max_tendenza=MAX_TENDENZA):
     """x0: campo osservato adesso (gia' nella scala in cui la variazione e' additiva: decibel per la pioggia).
     noto0: dove x0 e' noto. campi_wrf[k]: campo del WRF corretto al passo k (stessa scala), k=0..passi (None se manca).
     mov_oss: (u, v) movimento osservato in pixel per passo. mov_wrf(k): (u, v) del WRF al passo k, o None.
@@ -62,10 +65,12 @@ def evolvi(x0, noto0, campi_wrf, mov_oss, mov_wrf, passi, minuti_passo=10, sigma
         if W0s is not None and Wk is not None:
             Wks = ndimage.gaussian_filter(np.nan_to_num(Wk, nan=minimo), sigma).astype("float32")
             w0dep = _remap(W0s, px, py, cv2.BORDER_REPLICATE)
-            tend = np.clip(Wks - w0dep, -MAX_TENDENZA, MAX_TENDENZA)
+            # la variazione del WRF conta quanto il WRF sta azzeccando adesso (peso_tendenza tra 0 e 1)
+            tend = np.clip(Wks - w0dep, -max_tendenza, max_tendenza) * peso_tendenza
             x = xdep + tend
-            # dove la realta' arriva da fuori dell'area vista, c'e' solo il WRF corretto
-            x = np.where(ndep, x, Wks)
+            # dove la realta' arriva da fuori dell'area vista: il WRF corretto, tanto piu' quanto e' affidabile
+            fuori = (Wks if minimo is None else minimo + (Wks - minimo) * peso_tendenza)
+            x = np.where(ndep, x, fuori)
             info["passi_con_wrf"] += 1
         else:
             x = xdep

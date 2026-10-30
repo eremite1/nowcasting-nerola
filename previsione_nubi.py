@@ -133,8 +133,9 @@ def prevedi(campi, t_ultimo, tempi_voluti, wrf_prev, lon, lat, passo_km):
                 orari.append((tm, np.clip(fusione.applica_tabella(fusione.deforma(ponte.porta(c_), du, dv), tab), 0, 1)))
         flussi = []
         for (ta, a), (tb, b) in zip(orari[:-1], orari[1:]):
-            flussi.append(fusione.flusso(ndimage.gaussian_filter(np.nan_to_num(a), 3), ndimage.gaussian_filter(np.nan_to_num(b), 3),
-                                         0.0, 1.0, patch=21))
+            fu_, fv_ = fusione.flusso(ndimage.gaussian_filter(np.nan_to_num(a), 3), ndimage.gaussian_filter(np.nan_to_num(b), 3),
+                                      0.0, 1.0, patch=21)
+            flussi.append((ndimage.gaussian_filter(fu_, 25), ndimage.gaussian_filter(fv_, 25)))
         def campo_wrf(t):
             for j_ in range(len(orari) - 1):
                 (ta, a), (tb, b) = orari[j_], orari[j_ + 1]
@@ -173,14 +174,19 @@ def prevedi(campi, t_ultimo, tempi_voluti, wrf_prev, lon, lat, passo_km):
             mov_orari.append((ta, tb, mu / passi_ora, mv / passi_ora))
 
         def mov_wrf(k):
-            t = t_ultimo + timedelta(minutes=k * PASSO - PASSO / 2)
-            for ta, tb, mu, mv in mov_orari:
-                if ta <= t <= tb:
-                    return mu, mv
-            return None
+            # solo il vento in quota del WRF, lisciato: le nubi si spostano come un insieme (niente strisce)
+            vg = wrf_prev.vento_guida(t_ultimo + timedelta(minutes=k * PASSO))
+            if vg is None:
+                return None
+            gu, gv = evoluzione.vento_in_pixel(riempi(ponte.porta(vg[0])), riempi(ponte.porta(vg[1])), passo_km, PASSO)
+            return ndimage.gaussian_filter(gu, 30), ndimage.gaussian_filter(gv, 30)
 
-        evo, val, ev_info = evoluzione.evolvi(np.nan_to_num(alfa0), np.isfinite(alfa0), campi_w, (u, v), mov_wrf, passi, PASSO,
-                                              sigma=3.0, minimo=0.0, massimo=1.0, tau_mov=1e-6)
+        mov_liscio = (ndimage.gaussian_filter(u, 40), ndimage.gaussian_filter(v, 40))
+        peso_t = float(np.clip(w_info.get("correlazione_dopo") or 0.0, 0.0, 0.9))
+        info["peso_evoluzione_wrf"] = round(peso_t, 2)
+        evo, val, ev_info = evoluzione.evolvi(np.nan_to_num(alfa0), np.isfinite(alfa0), campi_w, mov_liscio, mov_wrf, passi, PASSO,
+                                              sigma=8.0, minimo=0.0, massimo=1.0, tau_mov=60.0, peso_tendenza=peso_t,
+                                              max_tendenza=0.5)
         info["evoluzione"] = ev_info
         for t in tempi_voluti:
             k = int(round((t - t_ultimo).total_seconds() / 60 / PASSO))
