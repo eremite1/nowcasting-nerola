@@ -284,6 +284,15 @@ def _tau(r, minuti, lo, hi, default):
     return float(np.clip(-minuti / math.log(min(r, 0.995)), lo, hi))
 
 
+def ponte_riempi(a):
+    """Fuori dall'area del WRF si usa il valore del punto piu' vicino dentro l'area."""
+    noto = np.isfinite(a)
+    if noto.all() or not noto.any():
+        return np.nan_to_num(a)
+    idx = ndimage.distance_transform_edt(~noto, return_distances=False, return_indices=True)
+    return a[tuple(idx)]
+
+
 def calcola(radar, wrf_prev=None, ponte_fn=None, pagella=None):
     import fusione
     tempi = [tempo(t) for t in radar["tempi"]]
@@ -350,7 +359,7 @@ def calcola(radar, wrf_prev=None, ponte_fn=None, pagella=None):
 
     # ---- 3. WRF corretto punto per punto
     wrf_info = {"usato": False}
-    wrf_corr = {}
+    wrf_corr, wrf_evo, corr_spost, ponte, tab_evo = {}, {}, None, None, None
     c_prior = C_DEFAULT
     if wrf_prev is not None and ponte_fn is not None:
         ponte = ponte_fn(wrf_prev)
@@ -385,6 +394,10 @@ def calcola(radar, wrf_prev=None, ponte_fn=None, pagella=None):
                 minuti = k * PASSO_MIN
                 campo = fusione.deforma(ponte.porta(wc), du, dv, fattore=math.exp(-minuti / 360.0))
                 wrf_corr[k] = fusione.applica_tabella(campo, tab, alfa=math.exp(-minuti / 240.0))
+                # per l'evoluzione la correzione resta costante: cosi' la variazione nel tempo e' solo quella del modello
+                wrf_evo[k] = fusione.applica_tabella(fusione.deforma(ponte.porta(wc), du, dv), tab)
+            corr_spost = (du, dv)
+            tab_evo = tab
             wrf_info = {"usato": True, "corsa": wrf_prev.corsa.strftime("%Y-%m-%d %H UTC"), "abilita": round(c_prior, 2),
                         "correzione_intensita": tab is not None, **info_all}
     info["wrf"] = wrf_info
@@ -432,26 +445,82 @@ def calcola(radar, wrf_prev=None, ponte_fn=None, pagella=None):
         r = np.where(x > 10 * math.log10(SOGLIA), 10 ** (x / 10.0), 0.0)
         estr.append(np.where(vv, r, np.nan).astype("float32"))
 
-    # ---- 6. fusione con pesi: misurati nei giorni scorsi se ci sono abbastanza casi, altrimenti stimati adesso
-    fonte_pesi = "stimati adesso"
+    # ---- 6. EVOLUZIONE GUIDATA DAL WRF (metodo principale, vedi evoluzione.py): si parte dal radar di adesso e lo si fa
+    #         evolvere seguendo il WRF corretto (vento che spinge i temporali + crescita/calo/nascita della pioggia)
+    import evoluzione
+    secco = 10 * math.log10(SOGLIA) - 1.0
+    db = lambda r: np.where(np.nan_to_num(r) >= SOGLIA, 10 * np.log10(np.maximum(np.nan_to_num(r), SOGLIA)), secco)  # noqa: E731
+    # I campi del WRF sono medie orarie: tra un'ora e l'altra non si mescolano (una cella che si sposta "si dimezzerebbe"
+    # a meta' strada) ma si fanno scorrere lungo il loro movimento (interpolazione con compensazione del moto).
+    campi_db = {}
+    if wrf_evo and corr_spost is not None:
+        orari = []
+        for c in wrf_prev.centri:
+            if t0 - timedelta(hours=1) <= c <= t0 + timedelta(minutes=passi * PASSO_MIN) + timedelta(hours=1):
+                campo = fusione.applica_tabella(fusione.deforma(ponte.porta(wrf_prev.campo(c)), *corr_spost), tab_evo)
+                orari.append((c, db(campo)))
+        flussi = []
+        for (ca, a), (cb, b) in zip(orari[:-1], orari[1:]):
+            sa = ndimage.gaussian_filter(np.nan_to_num(a, nan=secco), 4)
+            sb = ndimage.gaussian_filter(np.nan_to_num(b, nan=secco), 4)
+            flussi.append(fusione.flusso(sa, sb, secco, 25.0, patch=21))
+        for k in range(0, passi + 1):
+            t = t0 + timedelta(minutes=k * PASSO_MIN)
+            for j in range(len(orari) - 1):
+                (ca, a), (cb, b) = orari[j], orari[j + 1]
+                if ca <= t <= cb:
+                    f = (t - ca).total_seconds() / (cb - ca).total_seconds()
+                    u, v = flussi[j]
+                    pa = fusione.deforma(np.nan_to_num(a, nan=secco), u, v, f)
+                    pb = fusione.deforma(np.nan_to_num(b, nan=secco), u, v, -(1 - f))
+                    campi_db[k] = np.where(np.isfinite(pa) & np.isfinite(pb), (1 - f) * pa + f * pb,
+                                           np.where(np.isfinite(pa), pa, pb))
+                    break
+    vento_info = "movimento misurato sul radar (il WRF non ha ancora il vento in quota)"
+
+    def mov_wrf_passo(k):
+        nonlocal vento_info
+        t = t0 + timedelta(minutes=k * PASSO_MIN)
+        vw = wrf_prev.vento_guida(t) if (wrf_prev is not None and ponte is not None) else None
+        if vw is not None:
+            vento_info = "vento del WRF tra 850 e 500 hPa"
+            return evoluzione.vento_in_pixel(ponte_riempi(ponte.porta(vw[0])), ponte_riempi(ponte.porta(vw[1])), 1.0, PASSO_MIN)
+        ora_k = (k - 1) // 6 * 6
+        if ora_k in mov_wrf:
+            vento_info = "spostamento della pioggia nel WRF"
+            return mov_wrf[ora_k]
+        return None
+
+    evo, evo_val, evo_info = evoluzione.evolvi(db(radar0), noto0, campi_db, (u_c, v_c), mov_wrf_passo if wrf_evo else None,
+                                               passi, PASSO_MIN, sigma=5.0, minimo=secco, massimo=23.0)
+    evol = [np.where(v, np.where(x > secco + 0.5, 10 ** (x / 10.0), 0.0), np.nan).astype("float32") for x, v in zip(evo, evo_val)]
+    info["evoluzione"] = {**evo_info, "movimento": vento_info}
+
+    # ---- 7. combinazione finale: l'evoluzione guidata dal WRF e' la previsione. Solo se le verifiche dei giorni scorsi
+    #         dimostrano che a una certa scadenza la semplice estrapolazione del radar fa meglio, la si mescola (pesi
+    #         ottimali calcolati dall'abilita' misurata), cosi' la precisione la decidono i dati.
+    fonte_pesi = "solo evoluzione guidata dal WRF"
     previsioni, pesi, comp = [np.where(noto0, np.nan_to_num(radar0), np.nan).astype("float32")], [1.0], {}
     for k in range(1, passi + 1):
         minuti = k * PASSO_MIN
-        wrfc = wrf_corr.get(k)
+        ev = evol[k - 1]
+        es = estr[k - 1]
+        r_v = fusione.abilita_misurata(pagella, minuti, "evoluzione")
         r_e = fusione.abilita_misurata(pagella, minuti, "estrapolazione")
-        r_w = fusione.abilita_misurata(pagella, minuti, "wrf")
-        if r_e is not None and r_w is not None:
-            fonte_pesi = "imparati dalle verifiche dei giorni scorsi"
-        else:
-            r_e = math.exp(-minuti / tau_tot)
-            r_w = c_prior
-        w = fusione.pesi_ottimali(r_e, r_w) if wrfc is not None else 1.0
-        e = estr[k - 1]
-        previsioni.append(fondi(np.nan_to_num(e), np.isfinite(e), wrfc, w).astype("float32"))
-        pesi.append(round(w, 3))
+        w = 0.0       # peso dell'estrapolazione
+        if wrf_evo and r_v is not None and r_e is not None and r_e > r_v + 0.05:
+            w = fusione.pesi_ottimali(r_e, r_v)
+            fonte_pesi = "evoluzione WRF + estrapolazione dove le verifiche la danno migliore"
+        if not wrf_evo:
+            w = 1.0
+            fonte_pesi = "solo estrapolazione (WRF non disponibile per quest'ora)"
+        campo = ev if w == 0.0 else fondi(np.nan_to_num(ev), np.isfinite(ev), np.nan_to_num(es), 1 - w)
+        previsioni.append(np.asarray(campo, dtype="float32"))
+        pesi.append(round(1 - w, 3))
         if minuti in (30, 60, 120, 180):
-            comp[minuti] = {"estrapolazione": e, "wrf": None if wrfc is None else wrfc.astype("float32")}
-    info["peso_radar"] = {f"+{k * PASSO_MIN}": pesi[k] for k in (1, 3, 6, 12, 18, 24, 30, 36) if k < len(pesi)}
+            wrfc = wrf_corr.get(k)
+            comp[minuti] = {"estrapolazione": es, "evoluzione": ev, "wrf": None if wrfc is None else wrfc.astype("float32")}
+    info["peso_evoluzione"] = {f"+{k * PASSO_MIN}": pesi[k] for k in (1, 3, 6, 12, 18, 24, 30, 36) if k < len(pesi)}
     info["pesi"] = fonte_pesi
     return {"campi": np.stack(previsioni), "tempi": [(t0 + timedelta(minutes=k * PASSO_MIN)).strftime("%Y-%m-%dT%H:%MZ")
                                                     for k in range(passi + 1)],

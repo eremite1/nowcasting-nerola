@@ -200,7 +200,7 @@ def abilita_misurata(pagella, minuti, chiave):
     punti = []
     for s, v in tab.items():
         c = v.get(chiave)
-        if c is not None and v.get("casi", 0) >= 12:
+        if c is not None and v.get(f"casi_{chiave}", v.get("casi", 0)) >= 12:
             punti.append((int(s), float(c)))
     if len(punti) < 2:
         return None

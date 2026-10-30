@@ -37,6 +37,10 @@ class PrevisioneWRF:
         self._col = {k: np.asarray(z[k], dtype="float32") for k in ("TW2", "AFUS", "ARIG", "ZTW0") if k in z.files}
         if len(self._col) < 3:
             self._col = None
+        # vento che spinge nubi e temporali (media 850-500 hPa) e parametri dei temporali, se il WRF li ha
+        self._guida = (np.asarray(z["USTEER"], dtype="float32"), np.asarray(z["VSTEER"], dtype="float32")) \
+            if "USTEER" in z.files and "VSTEER" in z.files else None
+        self._cape = np.asarray(z["CAPE"], dtype="float32") if "CAPE" in z.files else None
         self.u10 = np.asarray(z["U10"], dtype="float64") if "U10" in z.files else None
         self.v10 = np.asarray(z["V10"], dtype="float64") if "V10" in z.files else None
 
@@ -66,6 +70,25 @@ class PrevisioneWRF:
         i = int(np.clip(np.searchsorted(s, x) - 1, 0, len(s) - 2))
         w = (x - s[i]) / (s[i + 1] - s[i])
         return self.nubi[i] * (1 - w) + self.nubi[i + 1] * w
+
+    def _istantaneo(self, arr, t):
+        if arr is None or not (self.tempi[0] <= t <= self.tempi[-1]):
+            return None
+        s = np.array([(c - self.tempi[0]).total_seconds() for c in self.tempi])
+        x = (t - self.tempi[0]).total_seconds()
+        i = int(np.clip(np.searchsorted(s, x) - 1, 0, len(s) - 2))
+        f = (x - s[i]) / (s[i + 1] - s[i])
+        return arr[i] * (1 - f) + arr[i + 1] * f
+
+    def vento_guida(self, t):
+        """(u, v) in m/s del vento medio 850-500 hPa all'istante t, o None."""
+        if self._guida is None:
+            return None
+        u = self._istantaneo(self._guida[0], t)
+        return None if u is None else (u, self._istantaneo(self._guida[1], t))
+
+    def cape(self, t):
+        return self._istantaneo(self._cape, t)
 
     def copre(self, t):
         return self.centri[0] <= t <= self.centri[-1]

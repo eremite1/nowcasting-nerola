@@ -120,6 +120,55 @@ def prevedi(campi, t_ultimo, tempi_voluti, wrf_prev, lon, lat, passo_km):
             ponte = None
     info["wrf"] = w_info
     out = {}
+    # EVOLUZIONE GUIDATA DAL WRF (vedi evoluzione.py): le nubi viste adesso vengono spostate dal vento in quota del WRF
+    # e lungo il percorso aumentano, diminuiscono, nascono o si dissolvono come nel WRF corretto.
+    if w_info.get("usato") and correzione is not None:
+        import evoluzione
+        import fusione
+        du, dv, tab = correzione
+        orari = []
+        for tm in wrf_prev.tempi:
+            if t_ultimo - timedelta(hours=1) <= tm <= max(tempi_voluti) + timedelta(hours=1):
+                c_ = wrf_prev.nuvolosita(tm)
+                orari.append((tm, np.clip(fusione.applica_tabella(fusione.deforma(ponte.porta(c_), du, dv), tab), 0, 1)))
+        flussi = []
+        for (ta, a), (tb, b) in zip(orari[:-1], orari[1:]):
+            flussi.append(fusione.flusso(ndimage.gaussian_filter(np.nan_to_num(a), 3), ndimage.gaussian_filter(np.nan_to_num(b), 3),
+                                         0.0, 1.0, patch=21))
+        def campo_wrf(t):
+            for j_ in range(len(orari) - 1):
+                (ta, a), (tb, b) = orari[j_], orari[j_ + 1]
+                if ta <= t <= tb:
+                    f = (t - ta).total_seconds() / (tb - ta).total_seconds()
+                    u_, v_ = flussi[j_]
+                    pa = fusione.deforma(np.nan_to_num(a), u_, v_, f)
+                    pb = fusione.deforma(np.nan_to_num(b), u_, v_, -(1 - f))
+                    return np.where(np.isfinite(pa) & np.isfinite(pb), (1 - f) * pa + f * pb, np.where(np.isfinite(pa), pa, pb))
+            return None
+        campi_w = {}
+        for k in range(0, passi + 1):
+            cw = campo_wrf(t_ultimo + timedelta(minutes=k * PASSO))
+            if cw is not None:
+                campi_w[k] = cw
+
+        def mov_wrf(k):
+            vg = wrf_prev.vento_guida(t_ultimo + timedelta(minutes=k * PASSO))
+            if vg is None:
+                return None
+            riempi = lambda a: np.where(np.isfinite(a), a, np.nanmean(a) if np.isfinite(a).any() else 0.0)  # noqa: E731
+            return evoluzione.vento_in_pixel(riempi(ponte.porta(vg[0])), riempi(ponte.porta(vg[1])), passo_km, PASSO)
+
+        evo, val, ev_info = evoluzione.evolvi(np.nan_to_num(alfa0), np.isfinite(alfa0), campi_w, (u, v), mov_wrf, passi, PASSO,
+                                              sigma=3.0, minimo=0.0, massimo=1.0)
+        info["evoluzione"] = ev_info
+        for t in tempi_voluti:
+            k = int(round((t - t_ultimo).total_seconds() / 60 / PASSO))
+            if k <= 0:
+                continue
+            a = evo[k - 1]
+            lm = np.where(valido[k - 1], l_est[k - 1], 0.85).astype("float64")
+            out[t] = (np.clip(a, 0, 1), np.clip(lm, 0, 1))
+        return out, info
     sfuma = lambda m: ndimage.gaussian_filter(m.astype("float64"), 10)  # noqa: E731  passaggi morbidi (circa 6 km)
     for t in tempi_voluti:
         k = int(round((t - t_ultimo).total_seconds() / 60 / PASSO))

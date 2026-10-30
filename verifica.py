@@ -84,6 +84,8 @@ def main():
     for s, comp in (nc.get("componenti") or {}).items():
         if comp.get("estrapolazione") is not None:
             campi[f"e{s}"] = np.nan_to_num(comp["estrapolazione"][r0:r1, c0:c1]).astype("float16")
+        if comp.get("evoluzione") is not None:
+            campi[f"v{s}"] = np.nan_to_num(comp["evoluzione"][r0:r1, c0:c1]).astype("float16")
         if comp.get("wrf") is not None:
             campi[f"w{s}"] = np.nan_to_num(comp["wrf"][r0:r1, c0:c1], nan=0.0).astype("float16")
     campi["oss"] = nc["campi"][0][r0:r1, c0:c1].astype("float16")
@@ -123,7 +125,7 @@ def main():
                 pers = z["oss"].astype("float64")
                 riga = {"partenza": str(z["t0"]), "minuti": str(s), "valida": valida.strftime("%Y-%m-%dT%H:%MZ")}
                 # correlazione (campi in decibel, sfumati su circa 6 km) di ciascuna componente con la pioggia vera
-                for nome, chiave in (("fusione", f"p{s}"), ("estrapolazione", f"e{s}"), ("wrf", f"w{s}")):
+                for nome, chiave in (("fusione", f"p{s}"), ("estrapolazione", f"e{s}"), ("evoluzione", f"v{s}"), ("wrf", f"w{s}")):
                     if chiave in z.files:
                         c_ = correla(z[chiave].astype("float64"), oss)
                         riga[f"corr_{nome}"] = "" if c_ is None else f"{c_:.3f}"
@@ -139,7 +141,7 @@ def main():
     righe = [r for r in righe_vecchie if tempo(r["valida"]) >= limite] + nuove
     campi_csv = ["partenza", "minuti", "valida"] + [f"{k}{sg:g}{suf}" for sg in SOGLIE
                                                     for k, suf in (("csi", "_nowcast"), ("csi", "_persistenza"), ("pixel_pioggia", ""))] \
-        + ["corr_fusione", "corr_estrapolazione", "corr_wrf"]
+        + ["corr_fusione", "corr_estrapolazione", "corr_evoluzione", "corr_wrf"]
     with open(out / "storico.csv", "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=campi_csv, extrasaction="ignore")
         w.writeheader()
@@ -166,13 +168,15 @@ def main():
     da = adesso - timedelta(days=14)
     abil = {}
     for s in SCADENZE:
-        sel = [r for r in righe if int(r["minuti"]) == s and tempo(r["valida"]) >= da
-               and r.get("corr_estrapolazione") and r.get("corr_wrf")]
+        sel = [r for r in righe if int(r["minuti"]) == s and tempo(r["valida"]) >= da and r.get("corr_estrapolazione")]
         if sel:
-            abil[str(s)] = {"estrapolazione": round(float(np.mean([float(r["corr_estrapolazione"]) for r in sel])), 3),
-                            "wrf": round(float(np.mean([float(r["corr_wrf"]) for r in sel])), 3),
-                            "fusione": round(float(np.mean([float(r["corr_fusione"]) for r in sel if r.get("corr_fusione")] or [0])), 3),
-                            "casi": len(sel)}
+            voce = {"casi": len(sel)}
+            for nome in ("estrapolazione", "evoluzione", "wrf", "fusione"):
+                vals = [float(r[f"corr_{nome}"]) for r in sel if r.get(f"corr_{nome}")]
+                if vals:
+                    voce[nome] = round(float(np.mean(vals)), 3)
+                    voce[f"casi_{nome}"] = len(vals)
+            abil[str(s)] = voce
     pagella["abilita_componenti"] = abil
     (out / "pagella.json").write_text(json.dumps(pagella, ensure_ascii=False, indent=1))
     print(f"confronti nuovi: {len(nuove)}, righe nello storico: {len(righe)}, file in archivio: "
