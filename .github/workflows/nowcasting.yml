@@ -70,6 +70,10 @@ jobs:
           SFONDO: /home/runner/sfondo
           CACHE_SAT: /home/runner/cache_sat
           WRF_FILE: /home/runner/wrf/d01_tutto.npz
+          NTFY_TOPIC: meteonerola-allerte
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT: ${{ secrets.TELEGRAM_CHAT }}
+          TELEGRAM_LINK: ${{ vars.TELEGRAM_LINK }}
         run: |
           set -u
           REMOTO="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"

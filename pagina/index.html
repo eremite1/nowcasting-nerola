@@ -27,16 +27,54 @@
   .sotto { color: var(--muto); font-size: .8rem; margin-left: auto; }
   main { max-width: 1280px; margin: 0 auto; padding: 14px 16px 28px; display: grid; gap: 14px; }
   .card { background: var(--card); border: 1px solid var(--linea); border-radius: 14px; padding: 14px; }
-  #adesso { display: grid; grid-template-columns: 1fr 360px; gap: 16px; align-items: center; }
-  @media (max-width: 860px) { #adesso { grid-template-columns: 1fr; } }
-  #adesso h2 { margin: 0 0 6px; font-size: .78rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muto); }
-  #frase-pioggia { font-size: 1.35rem; font-weight: 700; line-height: 1.25; margin: 0 0 8px; }
-  #frase-pioggia.no { color: var(--ok); } #frase-pioggia.dopo { color: var(--attento); } #frase-pioggia.presto, #frase-pioggia.ora { color: var(--allerta); }
-  .righe-adesso { display: grid; gap: 4px; font-size: .95rem; }
-  .righe-adesso span.ico { display: inline-block; width: 1.5em; }
+  /* ---- NEROLA ADESSO (riquadro principale) */
+  #adesso { position: relative; overflow: hidden; border-radius: 20px; color: #fff; padding: 22px 22px 18px; isolation: isolate;
+            background: linear-gradient(135deg, #2f7ed8 0%, #59a8f0 55%, #9fd2ff 100%); box-shadow: 0 10px 30px rgba(16,40,80,.18); }
+  #adesso.notte { background: linear-gradient(135deg, #0d1b3d 0%, #1d3266 60%, #36508f 100%); }
+  #adesso.nuvoloso { background: linear-gradient(135deg, #4e6378 0%, #6f8599 55%, #9fb0c0 100%); }
+  #adesso.nuvoloso.notte { background: linear-gradient(135deg, #1f2a38 0%, #364558 60%, #4f6075 100%); }
+  #adesso.pioggia { background: linear-gradient(135deg, #1e3550 0%, #2f557d 55%, #4f7aa6 100%); }
+  #adesso.neve { background: linear-gradient(135deg, #5b6ea8 0%, #8c9fd6 55%, #c9d5f5 100%); }
+  #adesso.temporale { background: linear-gradient(135deg, #1a1530 0%, #3a2a5e 55%, #5d3f7a 100%); }
+  #adesso .effetto { position: absolute; inset: 0; z-index: -1; pointer-events: none; opacity: .5; }
+  #adesso.pioggia .effetto, #adesso.temporale .effetto { background-image: repeating-linear-gradient(105deg, rgba(255,255,255,.0) 0 14px, rgba(255,255,255,.18) 14px 15px);
+            background-size: 60px 60px; animation: cade 0.6s linear infinite; }
+  #adesso.neve .effetto { background-image: radial-gradient(circle, rgba(255,255,255,.9) 1.5px, transparent 2px), radial-gradient(circle, rgba(255,255,255,.6) 1px, transparent 1.5px);
+            background-size: 46px 46px, 28px 28px; animation: nevica 6s linear infinite; }
+  #adesso.temporale .lampo-fx { position: absolute; inset: 0; z-index: -1; background: #fff; opacity: 0; animation: lampeggia 7s infinite; }
+  @keyframes cade { to { background-position: -16px 60px; } }
+  @keyframes nevica { to { background-position: 10px 46px, -8px 28px; } }
+  @keyframes lampeggia { 0%, 91%, 94%, 100% { opacity: 0; } 92% { opacity: .35; } 93% { opacity: .08; } 93.5% { opacity: .25; } }
+  @media (prefers-reduced-motion: reduce) { #adesso .effetto, #adesso .lampo-fx { animation: none; } }
+  .eroe-testa { display: grid; grid-template-columns: auto 1fr auto; gap: 18px; align-items: center; }
+  @media (max-width: 700px) { .eroe-testa { grid-template-columns: auto 1fr; } .eroe-temp { grid-column: 1 / -1; text-align: left !important; } }
+  .icona-grande { width: 96px; height: 96px; filter: drop-shadow(0 4px 10px rgba(0,0,0,.25)); }
+  .icona-grande svg { width: 100%; height: 100%; }
+  .luogo { font-size: .78rem; letter-spacing: .12em; text-transform: uppercase; opacity: .85; font-weight: 600; }
+  #frase-pioggia { font-size: clamp(1.35rem, 3.2vw, 2.1rem); font-weight: 800; line-height: 1.15; margin: 4px 0 6px; text-shadow: 0 2px 8px rgba(0,0,0,.2); }
+  .conto { font-size: 1rem; opacity: .95; }
+  .conto b { font-size: 1.6rem; font-weight: 800; }
+  .eroe-temp { text-align: right; }
+  .eroe-temp .gradi { font-size: clamp(2.6rem, 6vw, 3.8rem); font-weight: 200; line-height: 1; }
+  .eroe-temp small { display: block; font-size: .72rem; opacity: .8; }
+  .chip-riga { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0 6px; }
+  .chip-eroe { background: rgba(255,255,255,.17); backdrop-filter: blur(4px); border: 1px solid rgba(255,255,255,.25); border-radius: 999px;
+               padding: 6px 12px; font-size: .86rem; display: inline-flex; gap: 6px; align-items: center; }
+  .chip-eroe.forte { background: rgba(255,80,60,.35); border-color: rgba(255,200,190,.6); font-weight: 700; }
+  .pannelli { display: grid; grid-template-columns: 1.3fr 1fr; gap: 14px; margin-top: 12px; }
+  @media (max-width: 860px) { .pannelli { grid-template-columns: 1fr; } }
+  .pannello { background: rgba(0,0,0,.16); border: 1px solid rgba(255,255,255,.14); border-radius: 14px; padding: 10px 12px 8px; }
+  .pannello h3 { margin: 0 0 6px; font-size: .74rem; letter-spacing: .1em; text-transform: uppercase; opacity: .85; font-weight: 600; }
+  .pannello canvas { width: 100%; height: 130px; display: block; }
+  .ore6 { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+  @media (max-width: 560px) { .ore6 { grid-template-columns: repeat(3, 1fr); } .icona-grande { width: 72px; height: 72px; } .conto b { font-size: 1.3rem; } }
+  .ora-tile { text-align: center; padding: 6px 2px; border-radius: 10px; background: rgba(255,255,255,.08); }
+  .ora-tile .h { font-size: .8rem; opacity: .85; } .ora-tile svg { width: 38px; height: 38px; display: block; margin: 2px auto; }
+  .ora-tile .mm { font-size: .82rem; font-weight: 700; } .ora-tile .nu { font-size: .7rem; opacity: .8; }
+  .allerte { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; margin-top: 12px; font-size: .86rem; }
+  .allerte a { color: #fff; font-weight: 700; background: rgba(255,255,255,.2); padding: 6px 12px; border-radius: 999px; text-decoration: none; border: 1px solid rgba(255,255,255,.35); }
+  .allerte a:hover { background: rgba(255,255,255,.3); }
   .vicino { color: var(--allerta); font-weight: 600; }
-  .grafico-box { font-size: .72rem; color: var(--muto); }
-  .grafico-box canvas { width: 100%; height: 92px; display: block; }
   .comandi-mappa { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
   .gruppo { display: inline-flex; border: 1px solid var(--linea); border-radius: 10px; overflow: hidden; }
   .gruppo button { padding: 7px 12px; border: 0; background: var(--card); color: var(--testo); font: inherit; font-size: .9rem; cursor: pointer; }
@@ -106,20 +144,29 @@
 <main>
   <div id="errore"></div>
 
-  <section class="card" id="adesso">
-    <div>
-      <h2>Nerola adesso</h2>
-      <p id="frase-pioggia">caricamento...</p>
-      <div class="righe-adesso">
-        <div><span class="ico">⚡</span><span id="frase-fulmini">--</span></div>
-        <div><span class="ico">☁️</span><span id="frase-cielo">--</span></div>
-        <div id="riga-grandine" style="display:none"><span class="ico">🧊</span><span id="frase-grandine" class="vicino"></span></div>
+  <section id="adesso" aria-live="polite">
+    <div class="effetto"></div><div class="lampo-fx"></div>
+    <div class="eroe-testa">
+      <div class="icona-grande" id="icona-grande" aria-hidden="true"></div>
+      <div>
+        <div class="luogo">Nerola · adesso <span id="ora-eroe"></span></div>
+        <h2 id="frase-pioggia">caricamento...</h2>
+        <div class="conto" id="conto"></div>
+      </div>
+      <div class="eroe-temp" id="eroe-temp"></div>
+    </div>
+    <div class="chip-riga" id="chip-eroe"></div>
+    <div class="pannelli">
+      <div class="pannello">
+        <h3>Prossime 2 ore, ogni 10 minuti</h3>
+        <canvas id="grafico-minuti" width="760" height="260"></canvas>
+      </div>
+      <div class="pannello">
+        <h3>Prossime 6 ore</h3>
+        <div class="ore6" id="ore6"></div>
       </div>
     </div>
-    <div class="grafico-box">
-      <canvas id="grafico-nerola" width="720" height="184"></canvas>
-      Pioggia (barre) e nuvolosità (area grigia) a Nerola, da adesso a +6 ore
-    </div>
+    <div class="allerte" id="allerte"></div>
   </section>
 
   <section class="card">
@@ -514,14 +561,101 @@
   };
 
   // ------------------------------------------------------------------ riquadri
+  // ---- icone (SVG semplici, disegnate qui)
+  function icona(cielo, piove, tipo, notte, fulmini) {
+    const sole = notte
+      ? '<path d="M44 14a20 20 0 1 0 18 28 16 16 0 0 1-18-28z" fill="#ffe9a8"/>'
+      : '<g><circle cx="40" cy="30" r="13" fill="#ffd34d"/>' + [0,45,90,135,180,225,270,315].map((a) => { const r = a * Math.PI / 180;
+          return '<line x1="' + (40 + 18 * Math.cos(r)) + '" y1="' + (30 + 18 * Math.sin(r)) + '" x2="' + (40 + 24 * Math.cos(r)) + '" y2="' + (30 + 24 * Math.sin(r)) + '" stroke="#ffd34d" stroke-width="4" stroke-linecap="round"/>'; }).join("") + '</g>';
+    const nube = (x, y, s, col) => '<g transform="translate(' + x + ' ' + y + ') scale(' + s + ')"><path d="M20 44h44a14 14 0 0 0 0-28 20 20 0 0 0-38-4A14 14 0 0 0 20 44z" fill="' + col + '"/></g>';
+    let g = "";
+    if (cielo < 0.35 && !piove) g += sole;
+    if (cielo >= 0.12 || piove) g += nube(cielo < 0.35 && !piove ? 18 : 6, cielo < 0.35 && !piove ? 22 : 10, cielo < 0.35 && !piove ? .85 : 1, piove ? "#dfe7f2" : "#f4f7fb");
+    if (piove) {
+      if (tipo === 2) g += [22, 40, 58].map((x, i) => '<text x="' + x + '" y="' + (78 + (i % 2) * 8) + '" font-size="16" fill="#fff" text-anchor="middle">❄</text>').join("");
+      else g += [24, 40, 56].map((x, i) => '<line x1="' + x + '" y1="' + (62 + (i % 2) * 4) + '" x2="' + (x - 5) + '" y2="' + (76 + (i % 2) * 4) + '" stroke="#7cc4ff" stroke-width="4" stroke-linecap="round"/>').join("");
+    }
+    if (fulmini) g += '<path d="M44 52 34 70h9l-5 16 15-22h-9l6-12z" fill="#ffd400" stroke="#7a5b00" stroke-width="1"/>';
+    return '<svg viewBox="0 0 88 92" xmlns="http://www.w3.org/2000/svg">' + g + '</svg>';
+  }
+  function eNotte(d) {
+    // altezza del Sole a Nerola (formula semplice): sotto l'orizzonte = notte
+    const giorno = Math.floor((d - new Date(Date.UTC(d.getUTCFullYear(), 0, 0))) / 864e5);
+    const decl = 23.44 * Math.sin((2 * Math.PI / 365) * (giorno - 81)) * Math.PI / 180;
+    const ore = d.getUTCHours() + d.getUTCMinutes() / 60 + NEROLA[1] / 15 - 12;
+    const lat = NEROLA[0] * Math.PI / 180, h = ore * 15 * Math.PI / 180;
+    return Math.sin(lat) * Math.sin(decl) + Math.cos(lat) * Math.cos(decl) * Math.cos(h) < -0.01;
+  }
+  function graficoMinuti(canvas, pioggia, tipi, t0) {
+    const x = canvas.getContext("2d"), W = canvas.width, H = canvas.height, n = Math.min(13, pioggia.length);
+    x.clearRect(0, 0, W, H);
+    const basso = H - 34, alto = 14, sx = 125, w = (W - sx - 10) / n;
+    const scala = (v) => Math.sqrt(Math.min(v, 30) / 30) * (basso - alto);
+    x.font = "20px system-ui"; x.textBaseline = "middle";
+    [[1, "debole"], [4, "moderata"], [15, "forte"]].forEach(([v, nome]) => {
+      const y = basso - scala(v);
+      x.strokeStyle = "rgba(255,255,255,.28)"; x.setLineDash([6, 6]); x.beginPath(); x.moveTo(sx, y); x.lineTo(W - 6, y); x.stroke(); x.setLineDash([]);
+      x.fillStyle = "rgba(255,255,255,.75)"; x.textAlign = "right"; x.fillText(nome, sx - 8, y);
+    });
+    for (let k = 0; k < n; k++) {
+      const v = pioggia[k]; const h = v >= 0.1 ? Math.max(6, scala(v)) : 3;
+      const neve = tipi && tipi[k] === 2;
+      x.fillStyle = v >= 0.1 ? (neve ? "#f2f0ff" : (v >= 15 ? "#ff5a3c" : v >= 4 ? "#ffd23c" : v >= 1 ? "#4fc3ff" : "#9fe0ff")) : "rgba(255,255,255,.25)";
+      const bx = sx + k * w + 4, bw = w - 8;
+      x.beginPath(); if (x.roundRect) x.roundRect(bx, basso - h, bw, h, 6); else x.rect(bx, basso - h, bw, h); x.fill();
+    }
+    x.fillStyle = "rgba(255,255,255,.85)"; x.textAlign = "center"; x.font = "20px system-ui";
+    [0, 3, 6, 9, 12].forEach((k) => { if (k < n) x.fillText(k === 0 ? "ora" : ora(new Date(t0.getTime() + k * 600000)), sx + k * w + w / 2, H - 14); });
+  }
   function riempiAdesso() {
-    const n = S.sat && S.sat.nerola;
+    const n = S.sat && S.sat.nerola, A = $("adesso");
     if (!n) { $("frase-pioggia").textContent = "Dati di Nerola non ancora disponibili"; return; }
-    const fp = $("frase-pioggia"); fp.textContent = n.pioggia; fp.className = n.livello_pioggia || "";
-    const ff = $("frase-fulmini"); ff.textContent = n.fulmini; ff.className = n.livello_fulmini === "vicino" ? "vicino" : "";
-    $("frase-cielo").textContent = n.cielo || "--";
-    $("riga-grandine").style.display = n.grandine ? "" : "none"; $("frase-grandine").textContent = n.grandine || "";
-    if (n.pioggia_10min) graficoSerie($("grafico-nerola"), { pioggia: n.pioggia_10min, nubi: n.nubi_10min && n.nubi_10min.length === n.pioggia_10min.length ? n.nubi_10min : n.pioggia_10min.map(() => 0) });
+    const p = n.pioggia_10min || [], tipi = n.tipo_10min || [], nubi = n.nubi_10min || [];
+    const t0 = data(S.sat.t0 || S.radar.t0), notte = eNotte(t0);
+    const piove = (p[0] || 0) >= 0.2, cielo = n.copertura != null ? n.copertura : (nubi[0] || 0);
+    const fulmVicini = n.livello_fulmini === "vicino" || n.livello_fulmini === "medio";
+    const neve = (tipi[0] === 2) || /nev/i.test(n.pioggia || "");
+    A.className = (fulmVicini && (piove || n.livello_pioggia === "presto")) ? "temporale" : (piove ? (neve ? "neve" : "pioggia") : (cielo >= 0.5 ? "nuvoloso" : "")) + (notte ? " notte" : "");
+    $("icona-grande").innerHTML = icona(cielo, piove || n.livello_pioggia === "presto", tipi[0] || 0, notte, fulmVicini);
+    $("ora-eroe").textContent = "· ore " + ora(t0);
+    $("frase-pioggia").textContent = n.pioggia;
+    // conto alla rovescia
+    let conto = "";
+    const inizio = p.findIndex((v) => v >= 0.2);
+    if (piove) { const fine = p.findIndex((v, k) => k > 0 && v < 0.2); conto = fine > 0 ? "Smette tra circa <b>" + fine * 10 + " min</b>" : "Continuerà per le prossime ore"; }
+    else if (inizio > 0) conto = "Inizio previsto tra <b>" + inizio * 10 + " min</b> · alle " + ora(new Date(t0.getTime() + inizio * 600000));
+    else conto = "Cielo " + (cielo < 0.12 ? "sereno" : cielo < 0.35 ? "poco nuvoloso" : cielo < 0.65 ? "nuvoloso" : "coperto") + " · niente pioggia fino alle <b>" + ora(new Date(t0.getTime() + 6 * 3600000)) + "</b>";
+    $("conto").innerHTML = conto;
+    $("eroe-temp").innerHTML = n.temperatura != null ? '<div class="gradi">' + Math.round(n.temperatura) + '°</div><small>temperatura misurata ora<br>(stazioni Protezione Civile)</small>' : "";
+    // chip
+    const chip = [];
+    chip.push([n.livello_fulmini === "vicino", "⚡ " + n.fulmini]);
+    if (n.grandine) chip.push([true, "🧊 " + n.grandine]);
+    if (n.cielo) chip.push([false, "☁️ " + n.cielo]);
+    if (n.cape != null) { const c = n.cape, liv = c < 300 ? "basso" : c < 1000 ? "moderato" : c < 2000 ? "alto" : "molto alto";
+      chip.push([c >= 1000, "🌩️ Rischio temporali nelle prossime 6 ore: " + liv + " (" + c + " J/kg)"]); }
+    if (n.quota_neve != null && n.quota_neve < 2500) chip.push([n.quota_neve < 500, "🏔️ Quota neve: circa " + n.quota_neve + " m"]);
+    $("chip-eroe").innerHTML = chip.map(([forte, t]) => '<span class="chip-eroe' + (forte ? " forte" : "") + '">' + t + "</span>").join("");
+    graficoMinuti($("grafico-minuti"), p, tipi, t0);
+    // 6 ore
+    let html = "";
+    for (let h = 0; h < 6; h++) {
+      const ks = []; for (let k = h * 6 + 1; k <= h * 6 + 6 && k < p.length; k++) ks.push(k);
+      if (!ks.length) break;
+      const mm = ks.reduce((s, k) => s + (p[k] || 0) / 6, 0), max = Math.max(...ks.map((k) => p[k] || 0));
+      const cl = ks.reduce((s, k) => s + (nubi[k] || 0), 0) / ks.length;
+      const tp = ks.map((k) => tipi[k] || 0).sort((a, b) => b - a)[0];
+      const th = new Date(t0.getTime() + (h + 1) * 3600000);
+      html += '<div class="ora-tile"><div class="h">' + ora(th).slice(0, 2) + ':00</div>' + icona(cl, max >= 0.2, tp, eNotte(th), false) +
+              '<div class="mm">' + (mm >= 0.1 ? mm.toFixed(1) + " mm" : "—") + '</div><div class="nu">' + Math.round(cl * 100) + '% nubi</div></div>';
+    }
+    $("ore6").innerHTML = html;
+    // allerte
+    const nt = S.notifiche || {};
+    let al = "<span>🔔 <b>Allerte sul telefono</b> quando arriva la pioggia o un temporale a Nerola:</span>";
+    al += ' <a href="https://ntfy.sh/' + (nt.ntfy || "meteonerola-allerte") + '" target="_blank" rel="noopener">App ntfy (gratis)</a>';
+    if (nt.telegram_link) al += ' <a href="' + nt.telegram_link + '" target="_blank" rel="noopener">Canale Telegram</a>';
+    $("allerte").innerHTML = al;
   }
   function riempiScala() {
     const scala = (id, nome, colori, soglie) => {
@@ -572,6 +706,7 @@
       S.radar = ind; S.versione = ind.aggiornato;
       try { S.sat = await json("satellite.json"); } catch (e) { S.sat = null; }
       try { S.pagella = await json("pagella.json"); } catch (e) { S.pagella = null; }
+      try { S.notifiche = await json("notifiche.json"); } catch (e) { S.notifiche = null; }
       try { const r = await fetch("griglia.bin?t=" + Date.now(), { cache: "no-store" }); if (r.ok) S.griglia = new Uint8Array(await r.arrayBuffer()); } catch (e) { S.griglia = null; }
       $("errore").style.display = "none";
       riempiScala(); riempiAdesso(); situazione(); pagella();

@@ -9,6 +9,12 @@ ogni 10 minuti sui computer di GitHub. Fa parte di [meteonerola.it](https://www.
 1. **Scarica** dalla Protezione Civile (piattaforma Radar-DPC, dati liberi) gli ultimi scatti del radar nazionale
    (intensità di pioggia, ogni 5 minuti, ultime 2 ore) e dal servizio EUMETView di EUMETSAT le immagini del satellite
    Meteosat di terza generazione (MTG): visibile a 500 m, infrarosso a 1 km, colori reali, fulmini, ogni 10 minuti.
+**Metodo principale: evoluzione guidata dal WRF** (`evoluzione.py`): si parte dall'ultimo scatto di radar e satellite e
+lo si fa evolvere per 6 ore seguendo il WRF corretto: il vento in quota del WRF (850-500 hPa) sposta pioggia e nubi, e
+lungo il percorso crescono, calano, nascono o si esauriscono come nel WRF. La semplice estrapolazione resta come
+confronto: entra nella previsione solo dove le verifiche dimostrano che a quella scadenza fa meglio.
+**Allerte** (`notifiche.py`): pioggia in arrivo, inizio pioggia, temporale vicino, grandine, su ntfy (gratis) e Telegram.
+
 2. **Più movimenti**: la pioggia viene separata in celle (sotto circa 20 km) e sistema (fronte, banda). Le celle si
    muovono come misurato ogni 10 minuti, il sistema come misurato su 60 minuti; con le ore il sistema segue il
    movimento previsto dal WRF corretto (`nowcast.py`, `fusione.py`).
@@ -53,6 +59,9 @@ I dettagli scientifici (metodi e riferimenti) sono scritti all'inizio del file `
 | `giro.sh` | un giro completo (scarico, previsione, pagella, immagini) |
 | `wrf.py` | legge l'ultima previsione di wrf-nerola e la porta sulla griglia del radar |
 | `fusione.py` | correzione del WRF punto per punto, movimenti a più scale, pesi imparati |
+| `evoluzione.py` | evoluzione di radar e satellite guidata dal WRF |
+| `notifiche.py` | allerte sul telefono (ntfy, Telegram) |
+| `colonna.py` | bulbo umido e indici della colonna d'aria (copia da wrf-nerola) |
 | `tipo.py` | pioggia, mista, neve e grandine |
 | `nowcast.py` | il cuore: movimento, estrapolazione, correzione del WRF, fusione |
 | `verifica.py` | la pagella |

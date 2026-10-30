@@ -452,8 +452,29 @@ def main():
     cN, rN = nc["griglia"].indici(np.array([NEROLA[1]]), np.array([NEROLA[0]]))
     cN, rN = int(round(float(cN[0]))), int(round(float(rN[0])))
     tipo_nerola = [int(tipi[t][rN, cN]) if tipi.get(t) is not None else 0 for t in nc["tempi"]]
+    extra = {}
+    try:
+        if tp.t_oss is not None:
+            extra["temperatura"] = round(float(tp.t_oss[rN, cN]), 1)
+    except Exception:  # noqa: BLE001
+        pass
+    if wrf_prev is not None:
+        # punto del WRF piu' vicino a Nerola: energia per i temporali e quota dello zero di bulbo umido, prossime 6 ore
+        d2 = (wrf_prev.lat - NEROLA[0]) ** 2 + ((wrf_prev.lon - NEROLA[1]) * 0.74) ** 2
+        iy, ix = np.unravel_index(int(np.argmin(d2)), d2.shape)
+        ore = [t0_dt + __import__("datetime").timedelta(minutes=10 * k) for k in range(0, 37, 3)]
+        capes = [wrf_prev.cape(t) for t in ore]
+        capes = [float(c[max(0, iy - 2):iy + 3, max(0, ix - 2):ix + 3].max()) for c in capes if c is not None]
+        if capes:
+            extra["cape"] = int(round(max(capes)))
+        col = getattr(wrf_prev, "_col", None)
+        if col is not None and "ZTW0" in col:
+            zs = [wrf_prev._istantaneo(col["ZTW0"], t) for t in ore]
+            zs = [float(z[iy, ix]) for z in zs if z is not None]
+            if zs:
+                extra["quota_neve"] = int(round(min(zs) / 50.0) * 50)
     with open(f"{a.dati}/tipo.pkl", "wb") as f:
-        pickle.dump({"nerola": tipo_nerola, "grandine": indice["grandine"]}, f)
+        pickle.dump({"nerola": tipo_nerola, "grandine": indice["grandine"], **extra}, f)
     for chiave, cfg in AREE.items():
         z = Zona(chiave, cfg)
         cart = out / chiave

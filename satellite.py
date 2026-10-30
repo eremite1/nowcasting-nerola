@@ -613,7 +613,13 @@ def main():
         with open(f"{a.dati}/tipo.pkl", "rb") as f:
             tdat = pickle.load(f)
         tipo_nerola, gr = tdat.get("nerola"), tdat.get("grandine")
+        extra_n = {k: tdat[k] for k in ("temperatura", "cape", "quota_neve") if k in tdat}
+    else:
+        extra_n = {}
     indice["nerola"] = riassunto.riassunto_nerola(t0, pn, vicina, nubi_nerola, fulmini, None, info_nubi, tipo_nerola, gr)
+    indice["nerola"].update(extra_n)
+    if tipo_nerola:
+        indice["nerola"]["tipo_10min"] = tipo_nerola
     indice["nerola"]["pioggia_10min"] = [round(v, 1) for v in pn]
     indice["nerola"]["nubi_10min"] = [round(c, 2) for _, c in nubi_nerola]
     indice["t0"] = iso(t0)
