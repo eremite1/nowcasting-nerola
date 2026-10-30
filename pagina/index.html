@@ -57,6 +57,11 @@
   .eroe-temp { text-align: right; }
   .eroe-temp .gradi { font-size: clamp(2.6rem, 6vw, 3.8rem); font-weight: 200; line-height: 1; }
   .eroe-temp small { display: block; font-size: .72rem; opacity: .8; }
+  .stazione-riga { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 14px; padding: 10px 14px; border-radius: 14px;
+                   background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.2); font-size: .9rem; align-items: baseline; }
+  .stazione-riga:empty { display: none; }
+  .stazione-riga .tit { font-size: .72rem; letter-spacing: .1em; text-transform: uppercase; opacity: .85; font-weight: 700; width: 100%; }
+  .stazione-riga b { font-size: 1.05rem; }
   .chip-riga { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0 6px; }
   .chip-eroe { background: rgba(255,255,255,.17); backdrop-filter: blur(4px); border: 1px solid rgba(255,255,255,.25); border-radius: 999px;
                padding: 6px 12px; font-size: .86rem; display: inline-flex; gap: 6px; align-items: center; }
@@ -155,6 +160,7 @@
       </div>
       <div class="eroe-temp" id="eroe-temp"></div>
     </div>
+    <div class="stazione-riga" id="stazione-riga"></div>
     <div class="chip-riga" id="chip-eroe"></div>
     <div class="pannelli">
       <div class="pannello">
@@ -612,21 +618,38 @@
     if (!n) { $("frase-pioggia").textContent = "Dati di Nerola non ancora disponibili"; return; }
     const p = n.pioggia_10min || [], tipi = n.tipo_10min || [], nubi = n.nubi_10min || [];
     const t0 = data(S.sat.t0 || S.radar.t0), notte = eNotte(t0);
-    const piove = (p[0] || 0) >= 0.2, cielo = n.copertura != null ? n.copertura : (nubi[0] || 0);
+    const _st = S.stazione && S.stazione.aggiornata ? S.stazione : null;
+    const piove = (p[0] || 0) >= 0.2 || !!(_st && (_st.intensita || 0) > 0), cielo = n.copertura != null ? n.copertura : (nubi[0] || 0);
     const fulmVicini = n.livello_fulmini === "vicino" || n.livello_fulmini === "medio";
     const neve = (tipi[0] === 2) || /nev/i.test(n.pioggia || "");
     A.className = (fulmVicini && (piove || n.livello_pioggia === "presto")) ? "temporale" : (piove ? (neve ? "neve" : "pioggia") : (cielo >= 0.5 ? "nuvoloso" : "")) + (notte ? " notte" : "");
     $("icona-grande").innerHTML = icona(cielo, piove || n.livello_pioggia === "presto", tipi[0] || 0, notte, fulmVicini);
     $("ora-eroe").textContent = "· ore " + ora(t0);
-    $("frase-pioggia").textContent = n.pioggia;
+    const st = S.stazione && S.stazione.aggiornata ? S.stazione : null;
+    const pioveStazione = st && ((st.intensita || 0) > 0 || (st.pioggia_ultima_ora || 0) > 0.2);
+    $("frase-pioggia").textContent = (pioveStazione && !((p[0] || 0) >= 0.2)) ? "Sta piovendo a Nerola (misurato dalla stazione" + ((st.intensita || 0) > 0 ? ": " + st.intensita.toFixed(1).replace(".", ",") + " mm/h" : "") + ")" : n.pioggia;
     // conto alla rovescia
     let conto = "";
     const inizio = p.findIndex((v) => v >= 0.2);
-    if (piove) { const fine = p.findIndex((v, k) => k > 0 && v < 0.2); conto = fine > 0 ? "Smette tra circa <b>" + fine * 10 + " min</b>" : "Continuerà per le prossime ore"; }
+    if (piove && !((p[0] || 0) >= 0.2)) conto = "Misurata adesso dalla stazione: il radar non la vede ancora (pioggia debole o molto bassa)";
+    else if (piove) { const fine = p.findIndex((v, k) => k > 0 && v < 0.2); conto = fine > 0 ? "Smette tra circa <b>" + fine * 10 + " min</b>" : "Continuerà per le prossime ore"; }
     else if (inizio > 0) conto = "Inizio previsto tra <b>" + inizio * 10 + " min</b> · alle " + ora(new Date(t0.getTime() + inizio * 600000));
     else conto = "Cielo " + (cielo < 0.12 ? "sereno" : cielo < 0.35 ? "poco nuvoloso" : cielo < 0.65 ? "nuvoloso" : "coperto") + " · niente pioggia fino alle <b>" + ora(new Date(t0.getTime() + 6 * 3600000)) + "</b>";
     $("conto").innerHTML = conto;
-    $("eroe-temp").innerHTML = n.temperatura != null ? '<div class="gradi">' + Math.round(n.temperatura) + '°</div><small>temperatura misurata ora<br>(stazioni Protezione Civile)</small>' : "";
+    if (st && st.temperatura != null) {
+      $("eroe-temp").innerHTML = '<div class="gradi">' + st.temperatura.toFixed(1).replace(".", ",") + '°</div><small>stazione meteo di Nerola<br>min ' +
+        (st.temp_min != null ? st.temp_min.toFixed(1).replace(".", ",") : "--") + '° · max ' + (st.temp_max != null ? st.temp_max.toFixed(1).replace(".", ",") : "--") + '°</small>';
+      const f = (v, d) => v == null ? "--" : v.toFixed(d).replace(".", ",");
+      const tend = st.tendenza_pressione == null ? "" : (st.tendenza_pressione > 0.5 ? " ↗" : st.tendenza_pressione < -0.5 ? " ↘" : " →");
+      $("stazione-riga").innerHTML = '<span class="tit">📍 Stazione meteo di Nerola · dati delle ' + (st.ora ? ora(data(st.ora)) : "--") + '</span>' +
+        '<span>💧 Umidità <b>' + f(st.umidita, 0) + '%</b></span>' +
+        '<span>🌬️ Vento <b>' + f(st.vento, 0) + ' km/h</b> ' + (st.vento_direzione || "") + ' · raffica ' + f(st.raffica, 0) + '</span>' +
+        '<span>⏲️ Pressione <b>' + f(st.pressione, 1) + ' hPa</b>' + tend + '</span>' +
+        '<span>🌧️ Pioggia oggi <b>' + f(st.pioggia_oggi, 1) + ' mm</b>' + ((st.intensita || 0) > 0 ? ' · ora ' + f(st.intensita, 1) + ' mm/h' : "") + '</span>';
+    } else {
+      $("eroe-temp").innerHTML = n.temperatura != null ? '<div class="gradi">' + Math.round(n.temperatura) + '°</div><small>temperatura misurata ora<br>(stazioni Protezione Civile)</small>' : "";
+      $("stazione-riga").innerHTML = "";
+    }
     // chip
     const chip = [];
     chip.push([n.livello_fulmini === "vicino", "⚡ " + n.fulmini]);
@@ -707,6 +730,7 @@
       try { S.sat = await json("satellite.json"); } catch (e) { S.sat = null; }
       try { S.pagella = await json("pagella.json"); } catch (e) { S.pagella = null; }
       try { S.notifiche = await json("notifiche.json"); } catch (e) { S.notifiche = null; }
+      try { S.stazione = await json("stazione.json"); } catch (e) { S.stazione = null; }
       try { const r = await fetch("griglia.bin?t=" + Date.now(), { cache: "no-store" }); if (r.ok) S.griglia = new Uint8Array(await r.arrayBuffer()); } catch (e) { S.griglia = null; }
       $("errore").style.display = "none";
       riempiScala(); riempiAdesso(); situazione(); pagella();

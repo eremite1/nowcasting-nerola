@@ -34,6 +34,8 @@ if ! timeout 480 python "$QUI/satellite.py" --cache "${CACHE_SAT:-$DATI/cache_sa
   [ -f "$PUB/griglia.bin" ] && cp "$PUB/griglia.bin" "$NUOVO/" || true
 fi
 
+python "$QUI/stazione.py" --out "$NUOVO" >> "$REG" 2>&1 || true
+
 python "$QUI/notifiche.py" --nuovo "$NUOVO" --precedente "$PUB" >> "$REG" 2>&1 || echo "ATTENZIONE: notifiche non riuscite" >> "$REG"
 
 cp "$QUI/pagina/index.html" "$NUOVO/index.html"
