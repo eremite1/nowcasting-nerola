@@ -415,6 +415,7 @@ def campi_larghi(cache, seq, mezza, tab, lon_m, lat_m):
             return None
         T = a_temp(g, tab)
         alfa_ir, _ = nubi.copertura(T, None, np.zeros(T.shape), pk_l)
+        alfa_ir = ndimage.gaussian_filter(alfa_ir, 1.5)    # niente quadretti
         al_m, lu_m = mezza[t]
         sig = fattore / 2.5
         a_m = cv2.remap(ndimage.gaussian_filter(al_m, sig).astype("float32"), jx, iy, cv2.INTER_LINEAR,
