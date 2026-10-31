@@ -1,5 +1,5 @@
 {
- "aggiornata": "2026-10-31T15:30Z",
+ "aggiornata": "2026-10-31T15:35Z",
  "nuovi_confronti": 4,
  "periodi": {
   "7": {
@@ -7,43 +7,43 @@
     "1": {
      "nowcast": 33,
      "persistenza": 26,
-     "casi": 241
+     "casi": 242
     },
     "5": {
      "nowcast": 18,
      "persistenza": 19,
-     "casi": 187
+     "casi": 188
     }
    },
    "60": {
     "1": {
      "nowcast": 17,
      "persistenza": 13,
-     "casi": 240
+     "casi": 241
     },
     "5": {
      "nowcast": 8,
      "persistenza": 8,
-     "casi": 192
+     "casi": 193
     }
    },
    "120": {
     "1": {
      "nowcast": 6,
      "persistenza": 5,
-     "casi": 236
+     "casi": 237
     },
     "5": {
      "nowcast": 4,
      "persistenza": 2,
-     "casi": 194
+     "casi": 195
     }
    },
    "180": {
     "1": {
      "nowcast": 3,
      "persistenza": 2,
-     "casi": 236
+     "casi": 237
     },
     "5": {
      "nowcast": 2,
@@ -57,43 +57,43 @@
     "1": {
      "nowcast": 33,
      "persistenza": 26,
-     "casi": 241
+     "casi": 242
     },
     "5": {
      "nowcast": 18,
      "persistenza": 19,
-     "casi": 187
+     "casi": 188
     }
    },
    "60": {
     "1": {
      "nowcast": 17,
      "persistenza": 13,
-     "casi": 240
+     "casi": 241
     },
     "5": {
      "nowcast": 8,
      "persistenza": 8,
-     "casi": 192
+     "casi": 193
     }
    },
    "120": {
     "1": {
      "nowcast": 6,
      "persistenza": 5,
-     "casi": 236
+     "casi": 237
     },
     "5": {
      "nowcast": 4,
      "persistenza": 2,
-     "casi": 194
+     "casi": 195
     }
    },
    "180": {
     "1": {
      "nowcast": 3,
      "persistenza": 2,
-     "casi": 236
+     "casi": 237
     },
     "5": {
      "nowcast": 2,
@@ -105,15 +105,15 @@
  },
  "abilita_componenti": {
   "30": {
-   "casi": 190,
+   "casi": 191,
    "estrapolazione": 0.795,
-   "casi_estrapolazione": 190,
-   "evoluzione": 0.79,
-   "casi_evoluzione": 129,
-   "wrf": -0.008,
-   "casi_wrf": 189,
+   "casi_estrapolazione": 191,
+   "evoluzione": 0.791,
+   "casi_evoluzione": 130,
+   "wrf": -0.006,
+   "casi_wrf": 190,
    "fusione": 0.793,
-   "casi_fusione": 190
+   "casi_fusione": 191
   },
   "60": {
    "casi": 181,
@@ -127,15 +127,15 @@
    "casi_fusione": 181
   },
   "120": {
-   "casi": 142,
-   "estrapolazione": 0.248,
-   "casi_estrapolazione": 142,
-   "evoluzione": 0.313,
-   "casi_evoluzione": 94,
-   "wrf": -0.108,
-   "casi_wrf": 142,
+   "casi": 143,
+   "estrapolazione": 0.245,
+   "casi_estrapolazione": 143,
+   "evoluzione": 0.312,
+   "casi_evoluzione": 95,
+   "wrf": -0.106,
+   "casi_wrf": 143,
    "fusione": 0.221,
-   "casi_fusione": 142
+   "casi_fusione": 143
   },
   "180": {
    "casi": 126,
