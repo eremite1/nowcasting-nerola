@@ -1,0 +1,136 @@
+{
+ "ora_scarico": "2026-10-31T15:07:32Z",
+ "SRI": {
+  "primo_file": {
+   "proiezione": "Trasversa di Mercatore lon0=12.5 lat0=42.0 k0=1.0",
+   "nodata": null,
+   "forma": [
+    1400,
+    1200
+   ],
+   "passo": [
+    1000.0,
+    1000.0
+   ],
+   "metadati": "",
+   "minimo": -9999.0,
+   "massimo": 46.20499801635742,
+   "validi": 1.0
+  },
+  "periodo_min": 5,
+  "ritaglio": [
+   258,
+   1008,
+   232,
+   1011
+  ],
+  "scaricati": 25,
+  "chiesti": 25,
+  "ultimo": "2026-10-31T15:00Z",
+  "valori": [
+   0.0,
+   0.0,
+   69.6500015258789
+  ]
+ },
+ "IR_108": {
+  "primo_file": {
+   "proiezione": "Trasversa di Mercatore lon0=12.5 lat0=42.0 k0=1.0",
+   "nodata": null,
+   "forma": [
+    1400,
+    1200
+   ],
+   "passo": [
+    1000.0,
+    1000.0
+   ],
+   "metadati": "",
+   "minimo": -43.5,
+   "massimo": 19.5,
+   "validi": 1.0
+  },
+  "periodo_min": 5,
+  "ritaglio": [
+   432,
+   842,
+   418,
+   833
+  ],
+  "scaricati": 31,
+  "chiesti": 31,
+  "ultimo": "2026-10-30T00:20Z",
+  "valori": [
+   -32.0,
+   8.5,
+   18.5
+  ]
+ },
+ "POH": {
+  "primo_file": {
+   "proiezione": "Trasversa di Mercatore lon0=12.5 lat0=42.0 k0=1.0",
+   "nodata": null,
+   "forma": [
+    1400,
+    1200
+   ],
+   "passo": [
+    1000.0,
+    1000.0
+   ],
+   "metadati": "",
+   "minimo": -9999.0,
+   "massimo": 0.5708664655685425,
+   "validi": 1.0
+  },
+  "periodo_min": 5,
+  "ritaglio": [
+   432,
+   842,
+   418,
+   833
+  ],
+  "scaricati": 7,
+  "chiesti": 7,
+  "ultimo": "2026-10-31T15:00Z",
+  "valori": [
+   0.0,
+   0.0,
+   0.0
+  ]
+ },
+ "TEMP": {
+  "primo_file": {
+   "proiezione": "geografica (lon/lat)",
+   "nodata": null,
+   "forma": [
+    576,
+    631
+   ],
+   "passo": [
+    0.019983009747110096,
+    0.019983009747110096
+   ],
+   "metadati": "",
+   "minimo": -99999.0,
+   "massimo": 23.22158432006836,
+   "validi": 1.0
+  },
+  "periodo_min": 60,
+  "ritaglio": [
+   177,
+   363,
+   217,
+   463
+  ],
+  "scaricati": 1,
+  "chiesti": 1,
+  "ultimo": "2026-10-31T14:00Z",
+  "valori": [
+   -7.688137054443359,
+   0.0,
+   22.872020721435547
+  ]
+ },
+ "secondi": 21.8
+}

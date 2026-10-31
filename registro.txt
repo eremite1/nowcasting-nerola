@@ -1,0 +1,75 @@
+=== giro delle 15:07 UTC ===
+SRI: ultimo 2026-10-31T15:00Z, periodo 5 min, ne chiedo 25 ogni 5 min
+  griglia: Trasversa di Mercatore lon0=12.5 lat0=42.0 k0=1.0, [1400, 1200], passo [1000.0, 1000.0], nodata None
+  SRI: 25 su 25, ritaglio (750, 779), valori [0.0, 0.0, 69.6500015258789]
+IR_108: ultimo 2026-10-30T00:20Z, periodo 5 min, ne chiedo 31 ogni 5 min
+  griglia: Trasversa di Mercatore lon0=12.5 lat0=42.0 k0=1.0, [1400, 1200], passo [1000.0, 1000.0], nodata None
+  IR_108: 31 su 31, ritaglio (410, 415), valori [-32.0, 8.5, 18.5]
+POH: ultimo 2026-10-31T15:00Z, periodo 5 min, ne chiedo 7 ogni 10 min
+  griglia: Trasversa di Mercatore lon0=12.5 lat0=42.0 k0=1.0, [1400, 1200], passo [1000.0, 1000.0], nodata None
+  POH: 7 su 7, ritaglio (410, 415), valori [0.0, 0.0, 0.0]
+TEMP: ultimo 2026-10-31T14:00Z, periodo 60 min, ne chiedo 1 ogni 60 min
+  griglia: geografica (lon/lat), [576, 631], passo [0.019983009747110096, 0.019983009747110096], nodata None
+  TEMP: 1 su 1, ritaglio (186, 246), valori [-7.688137054443359, 0.0, 22.872020721435547]
+fatto in 21.8 s
+WRF: corsa 2026-10-30 12 UTC, da 30 12:30 a 01 11:30 UTC
+{
+ "t0": "2026-10-31T15:00Z",
+ "scatti_per_il_movimento": 4,
+ "metodo": "due scale + WRF corretto punto per punto",
+ "movimento_sistema_scartato": true,
+ "movimento": {
+  "pixel_pioggia": 14824,
+  "velocita_media_kmh": 13.4,
+  "direzione": 27
+ },
+ "vita_media_min": 127,
+ "vita_celle_min": 50,
+ "vita_sistema_min": 450,
+ "correlazione_30min": 0.79,
+ "wrf": {
+  "usato": true,
+  "corsa": "2026-10-30 12 UTC",
+  "abilita": 0.39,
+  "correzione_intensita": false,
+  "area_osservata": 0.007,
+  "area_modello": 0.028,
+  "correlazione_prima": 0.327,
+  "correlazione_dopo": 0.457,
+  "spostamento_medio_px": 6.8,
+  "spostamento_massimo_px": 13.3
+ },
+ "movimento_wrf_ore": 6,
+ "peso_evoluzione_wrf": 1.0,
+ "modalita": "wrf_totale",
+ "evoluzione": {
+  "passi_con_wrf": 36,
+  "passi_senza_wrf": 0,
+  "movimento": "WRF totale: movimento e evoluzione solo dal WRF"
+ },
+ "peso_evoluzione": {
+  "+10": 1.0,
+  "+30": 1.0,
+  "+60": 1.0,
+  "+120": 1.0,
+  "+180": 1.0,
+  "+240": 1.0,
+  "+300": 1.0,
+  "+360": 1.0
+ },
+ "pesi": "solo evoluzione guidata dal WRF"
+}
+confronti nuovi: 5, righe nello storico: 1517, file in archivio: 22
+Lazio: 860x845 px, radar 25, previsione 36
+Sabina: 860x863 px, radar 25, previsione 36
+ultime immagini EUMETView: {'ir': '2026-10-31T14:40Z', 'vis': '2026-10-31T14:50Z', 'geo': '2026-10-31T14:40Z', 'lampi': '2026-10-31T05:25Z', 'largo': '2026-10-31T14:40Z'}
+immagini da scaricare: 65
+scaricate 65 su 65 in 78 s
+taratura infrarosso: {'fonte': 'taratura precedente (nessuna coppia di immagini dello stesso istante)'}
+Lazio: satellite 13 istanti, disegnati ora 1
+Sabina: satellite 13 istanti, disegnati ora 1
+previsione nubi: {'ultimo_satellite': '2026-10-31T14:40Z', 'velocita_kmh': 5.3, 'direzione': 10, 'correlazione_30min': 0.858, 'vita_media_min': 195, 'wrf': {'usato': True, 'abilita': 0.48, 'nuvolosita_wrf': 0.12, 'nuvolosita_satellite': 0.17, 'spostamento_medio_km': 11.0, 'correlazione_prima': 0.459, 'correlazione_dopo': 0.497}, 'peso_evoluzione_wrf': 1.0, 'modalita': 'wrf_totale', 'evoluzione': {'passi_con_wrf': 38, 'passi_senza_wrf': 0}, 'zona_grande': {'usata': True, 'passo_km': 1.68, 'velocita_kmh': 7.7, 'direzione': 20}}
+Nerola: {'pioggia': 'Nessuna pioggia prevista a Nerola nelle prossime 6 ore (ora piove a 8 km verso ovest)', 'livello_pioggia': 'no', 'fulmini': 'Nessun fulmine negli ultimi 30 minuti', 'livello_fulmini': 'no', 'cielo': "Cielo poco nuvoloso, sereno tra un paio d'ore; nubi da nord a 5 km/h", 'copertura': 0.13, 'cape': 49, 'quota_neve': 1950, 'tipo_10min': [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], 'pioggia_10min': [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], 'nubi_10min': [0.13, 0.09, 0.12, 0.12, 0.11, 0.12, 0.19, 0.18, 0.17, 0.15, 0.14, 0.13, 0.11, 0.1, 0.1, 0.09, 0.08, 0.08, 0.07, 0.07, 0.07, 0.07, 0.08, 0.08, 0.09, 0.09, 0.09, 0.1, 0.1, 0.1, 0.11, 0.11, 0.11, 0.11, 0.11, 0.11, 0.11]}
+stazione: {'ora': '2026-10-31T15:05Z', 'temperatura': 16.2, 'umidita': 60.0, 'intensita': 0.0, 'pioggia_oggi': 0.0, 'aggiornata': True}
+nessuna allerta da mandare
+=== giro finito alle 15:10:12 UTC ===
