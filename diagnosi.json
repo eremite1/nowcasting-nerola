@@ -1,5 +1,5 @@
 {
- "ora_scarico": "2026-10-31T15:07:32Z",
+ "ora_scarico": "2026-10-31T15:17:01Z",
  "SRI": {
   "primo_file": {
    "proiezione": "Trasversa di Mercatore lon0=12.5 lat0=42.0 k0=1.0",
@@ -14,7 +14,7 @@
    ],
    "metadati": "",
    "minimo": -9999.0,
-   "massimo": 46.20499801635742,
+   "massimo": 42.16999816894531,
    "validi": 1.0
   },
   "periodo_min": 5,
@@ -26,7 +26,7 @@
   ],
   "scaricati": 25,
   "chiesti": 25,
-  "ultimo": "2026-10-31T15:00Z",
+  "ultimo": "2026-10-31T15:05Z",
   "valori": [
    0.0,
    0.0,
@@ -80,7 +80,7 @@
    ],
    "metadati": "",
    "minimo": -9999.0,
-   "massimo": 0.5708664655685425,
+   "massimo": 0.5393704175949097,
    "validi": 1.0
   },
   "periodo_min": 5,
@@ -92,11 +92,11 @@
   ],
   "scaricati": 7,
   "chiesti": 7,
-  "ultimo": "2026-10-31T15:00Z",
+  "ultimo": "2026-10-31T15:10Z",
   "valori": [
    0.0,
    0.0,
-   0.0
+   0.3503939211368561
   ]
  },
  "TEMP": {
@@ -132,5 +132,5 @@
    22.872020721435547
   ]
  },
- "secondi": 21.8
+ "secondi": 21.5
 }
