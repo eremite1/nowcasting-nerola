@@ -32,7 +32,8 @@ def _remap(campo, px, py, bordo):
 
 
 def evolvi(x0, noto0, campi_wrf, mov_oss, mov_wrf, passi, minuti_passo=10, sigma=5.0, minimo=None, tau_mov=30.0,
-           massimo=None, peso_tendenza=1.0, max_tendenza=MAX_TENDENZA, dentro=None):
+           massimo=None, peso_tendenza=1.0, max_tendenza=MAX_TENDENZA, dentro=None,
+           movimenti=None, mov_fisso=None, liscia_mov=0.0):
     """x0: campo osservato adesso (gia' nella scala in cui la variazione e' additiva: decibel per la pioggia).
     noto0: dove x0 e' noto. campi_wrf[k]: campo del WRF corretto al passo k (stessa scala), k=0..passi (None se manca).
     mov_oss: (u, v) movimento osservato in pixel per passo. mov_wrf(k): (u, v) del WRF al passo k, o None.
@@ -59,8 +60,11 @@ def evolvi(x0, noto0, campi_wrf, mov_oss, mov_wrf, passi, minuti_passo=10, sigma
         a = math.exp(-minuti / tau_mov)
         Wk = campi_wrf.get(k)
         Wks, vk = (None, None) if Wk is None else liscia(Wk)
-        mw = mov_wrf(k) if mov_wrf else None
-        if mw is None:
+        mw = mov_wrf(k) if (mov_wrf and mov_fisso is None) else None
+        if mov_fisso is not None:
+            # movimento imposto da fuori (stesso movimento della zona grande: nessuno "strappo" dove si uniscono)
+            u, v = (np.asarray(a_, "float32") for a_ in mov_fisso(k))
+        elif mw is None:
             u, v = uo, vo
         else:
             # dove c'e' il WRF il suo movimento, fuori dal suo territorio quello misurato (passaggio sfumato)
@@ -69,6 +73,12 @@ def evolvi(x0, noto0, campi_wrf, mov_oss, mov_wrf, passi, minuti_passo=10, sigma
             mwv = np.where(np.isfinite(mw[1]), mw[1], vo)
             u = a * uo + (1 - a) * (pw * mwu + (1 - pw) * uo)
             v = a * vo + (1 - a) * (pw * mwv + (1 - pw) * vo)
+        if liscia_mov > 0 and mov_fisso is None:
+            # movimento senza strappi: dove si passa dal movimento del WRF a quello misurato le nubi non si stirano
+            u = ndimage.gaussian_filter(u, liscia_mov)
+            v = ndimage.gaussian_filter(v, liscia_mov)
+        if movimenti is not None:
+            movimenti.append((u, v))
         du = _remap(u, px, py, cv2.BORDER_REPLICATE)
         dv = _remap(v, px, py, cv2.BORDER_REPLICATE)
         px = px - du

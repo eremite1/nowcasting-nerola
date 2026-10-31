@@ -61,7 +61,7 @@ def correlazione(a, b, m):
     return float(np.corrcoef(a, b)[0, 1])
 
 
-def _prevedi(campi, t_ultimo, tempi_voluti, wrf_prev, lon, lat, passo_km):
+def _prevedi(campi, t_ultimo, tempi_voluti, wrf_prev, lon, lat, passo_km, mov_fisso=None, movimenti=None):
     """campi: lista di (alfa, lum) a mezza definizione, ogni 10 minuti, l'ultimo a t_ultimo.
     tempi_voluti: istanti (datetime) per cui serve la previsione (anche prima di adesso, se il satellite e' in ritardo).
     lon, lat: coordinate della griglia (mezza definizione). Ritorna {istante: (alfa, lum)} e un dizionario di info."""
@@ -200,12 +200,14 @@ def _prevedi(campi, t_ultimo, tempi_voluti, wrf_prev, lon, lat, passo_km):
             dentro_l = []
             evo, val, ev_info = evoluzione.evolvi(np.nan_to_num(alfa0), np.isfinite(alfa0), campi_w, mov_liscio, mov_orari_passo,
                                                   passi, PASSO, sigma=3.0, minimo=0.0, massimo=1.0, tau_mov=1e-6,
-                                                  peso_tendenza=1.0, max_tendenza=1.0, dentro=dentro_l)
+                                                  peso_tendenza=1.0, max_tendenza=1.0, dentro=dentro_l,
+                                                  mov_fisso=mov_fisso, movimenti=movimenti, liscia_mov=6.0)
         else:
             dentro_l = []
             evo, val, ev_info = evoluzione.evolvi(np.nan_to_num(alfa0), np.isfinite(alfa0), campi_w, mov_liscio, mov_wrf, passi, PASSO,
                                                   sigma=8.0, minimo=0.0, massimo=1.0, tau_mov=60.0, peso_tendenza=peso_t,
-                                                  max_tendenza=0.5, dentro=dentro_l)
+                                                  max_tendenza=0.5, dentro=dentro_l,
+                                                  mov_fisso=mov_fisso, movimenti=movimenti, liscia_mov=6.0)
         info["evoluzione"] = ev_info
         for t in tempi_voluti:
             k = int(round((t - t_ultimo).total_seconds() / 60 / PASSO))
@@ -252,19 +254,33 @@ def prevedi(campi, t_ultimo, tempi_voluti, wrf_prev, lon, lat, passo_km, largo=N
     """Previsione delle nubi sulla mappa. Con 'largo' (zona molto piu' grande, vedi satellite.campi_larghi) le nubi che
     entrano nella mappa da fuori sono quelle vere che adesso stanno fuori, previste sulla zona grande: cosi' i bordi
     della mappa non si svuotano."""
-    out, info = _prevedi(campi, t_ultimo, tempi_voluti, wrf_prev, lon, lat, passo_km)
+    out_l, mov_l = None, []
+    if largo:
+        try:
+            out_l, info_l = _prevedi(largo["campi"], t_ultimo, tempi_voluti, wrf_prev, largo["lon"], largo["lat"],
+                                     largo["passo_km"], movimenti=mov_l)
+            info_l.pop("_dentro", None)
+        except Exception as e:  # noqa: BLE001
+            out_l, mov_l = None, []
+            info_err = str(e)[:200]
+    mov_fisso = None
+    if out_l and mov_l:
+        LO, LA = largo["lon"], largo["lat"]
+        jx = ((lon - LO[0, 0]) / (LO[0, -1] - LO[0, 0]) * (LO.shape[1] - 1)).astype("float32")
+        iy = ((lat - LA[0, 0]) / (LA[-1, 0] - LA[0, 0]) * (LA.shape[0] - 1)).astype("float32")
+        scala = largo["passo_km"] / passo_km
+
+        def mov_fisso(k):
+            u_, v_ = mov_l[min(k, len(mov_l)) - 1]
+            return (cv2.remap(np.asarray(u_, "float32"), jx, iy, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE) * scala,
+                    cv2.remap(np.asarray(v_, "float32"), jx, iy, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE) * scala)
+    out, info = _prevedi(campi, t_ultimo, tempi_voluti, wrf_prev, lon, lat, passo_km, mov_fisso=mov_fisso)
     dentro = info.pop("_dentro", {})
     if not largo or not out:
         return out, info
-    try:
-        out_l, info_l = _prevedi(largo["campi"], t_ultimo, tempi_voluti, wrf_prev, largo["lon"], largo["lat"], largo["passo_km"])
-        info_l.pop("_dentro", None)
-    except Exception as e:  # noqa: BLE001
-        info["zona_grande"] = {"errore": str(e)[:200]}
+    if not out_l:
+        info["zona_grande"] = {"errore": locals().get("info_err", "nessun risultato")}
         return out, info
-    LO, LA = largo["lon"], largo["lat"]
-    jx = ((lon - LO[0, 0]) / (LO[0, -1] - LO[0, 0]) * (LO.shape[1] - 1)).astype("float32")
-    iy = ((lat - LA[0, 0]) / (LA[-1, 0] - LA[0, 0]) * (LA.shape[0] - 1)).astype("float32")
     for t, (a, lm) in out.items():
         if t not in out_l or t not in dentro:
             continue
