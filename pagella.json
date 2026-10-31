@@ -1,5 +1,5 @@
 {
- "aggiornata": "2026-10-31T15:05Z",
+ "aggiornata": "2026-10-31T15:15Z",
  "nuovi_confronti": 4,
  "periodi": {
   "7": {
@@ -7,48 +7,48 @@
     "1": {
      "nowcast": 33,
      "persistenza": 26,
-     "casi": 239
+     "casi": 240
     },
     "5": {
      "nowcast": 19,
      "persistenza": 19,
-     "casi": 185
+     "casi": 186
     }
    },
    "60": {
     "1": {
      "nowcast": 17,
      "persistenza": 13,
-     "casi": 238
+     "casi": 239
     },
     "5": {
      "nowcast": 8,
      "persistenza": 8,
-     "casi": 191
+     "casi": 192
     }
    },
    "120": {
     "1": {
      "nowcast": 6,
      "persistenza": 5,
-     "casi": 234
+     "casi": 235
     },
     "5": {
      "nowcast": 4,
      "persistenza": 2,
-     "casi": 192
+     "casi": 193
     }
    },
    "180": {
     "1": {
      "nowcast": 3,
      "persistenza": 2,
-     "casi": 234
+     "casi": 235
     },
     "5": {
      "nowcast": 2,
      "persistenza": 0,
-     "casi": 198
+     "casi": 199
     }
    }
   },
@@ -57,63 +57,63 @@
     "1": {
      "nowcast": 33,
      "persistenza": 26,
-     "casi": 239
+     "casi": 240
     },
     "5": {
      "nowcast": 19,
      "persistenza": 19,
-     "casi": 185
+     "casi": 186
     }
    },
    "60": {
     "1": {
      "nowcast": 17,
      "persistenza": 13,
-     "casi": 238
+     "casi": 239
     },
     "5": {
      "nowcast": 8,
      "persistenza": 8,
-     "casi": 191
+     "casi": 192
     }
    },
    "120": {
     "1": {
      "nowcast": 6,
      "persistenza": 5,
-     "casi": 234
+     "casi": 235
     },
     "5": {
      "nowcast": 4,
      "persistenza": 2,
-     "casi": 192
+     "casi": 193
     }
    },
    "180": {
     "1": {
      "nowcast": 3,
      "persistenza": 2,
-     "casi": 234
+     "casi": 235
     },
     "5": {
      "nowcast": 2,
      "persistenza": 0,
-     "casi": 198
+     "casi": 199
     }
    }
   }
  },
  "abilita_componenti": {
   "30": {
-   "casi": 188,
-   "estrapolazione": 0.796,
-   "casi_estrapolazione": 188,
+   "casi": 189,
+   "estrapolazione": 0.795,
+   "casi_estrapolazione": 189,
    "evoluzione": 0.79,
-   "casi_evoluzione": 127,
-   "wrf": -0.011,
-   "casi_wrf": 187,
-   "fusione": 0.793,
-   "casi_fusione": 188
+   "casi_evoluzione": 128,
+   "wrf": -0.01,
+   "casi_wrf": 188,
+   "fusione": 0.792,
+   "casi_fusione": 189
   },
   "60": {
    "casi": 181,

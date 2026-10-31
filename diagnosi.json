@@ -1,5 +1,5 @@
 {
- "ora_scarico": "2026-10-31T15:17:01Z",
+ "ora_scarico": "2026-10-31T15:27:02Z",
  "SRI": {
   "primo_file": {
    "proiezione": "Trasversa di Mercatore lon0=12.5 lat0=42.0 k0=1.0",
@@ -14,7 +14,7 @@
    ],
    "metadati": "",
    "minimo": -9999.0,
-   "massimo": 42.16999816894531,
+   "massimo": 48.93000030517578,
    "validi": 1.0
   },
   "periodo_min": 5,
@@ -26,7 +26,7 @@
   ],
   "scaricati": 25,
   "chiesti": 25,
-  "ultimo": "2026-10-31T15:05Z",
+  "ultimo": "2026-10-31T15:15Z",
   "valori": [
    0.0,
    0.0,
@@ -80,7 +80,7 @@
    ],
    "metadati": "",
    "minimo": -9999.0,
-   "massimo": 0.5393704175949097,
+   "massimo": 0.4763782322406769,
    "validi": 1.0
   },
   "periodo_min": 5,
@@ -92,7 +92,7 @@
   ],
   "scaricati": 7,
   "chiesti": 7,
-  "ultimo": "2026-10-31T15:10Z",
+  "ultimo": "2026-10-31T15:20Z",
   "valori": [
    0.0,
    0.0,
@@ -113,7 +113,7 @@
    ],
    "metadati": "",
    "minimo": -99999.0,
-   "massimo": 23.22158432006836,
+   "massimo": 23.81649398803711,
    "validi": 1.0
   },
   "periodo_min": 60,
@@ -125,12 +125,12 @@
   ],
   "scaricati": 1,
   "chiesti": 1,
-  "ultimo": "2026-10-31T14:00Z",
+  "ultimo": "2026-10-31T15:00Z",
   "valori": [
-   -7.688137054443359,
+   -7.276174068450928,
    0.0,
-   22.872020721435547
+   23.81649398803711
   ]
  },
- "secondi": 21.5
+ "secondi": 21.0
 }
