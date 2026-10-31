@@ -64,7 +64,14 @@ STRATI = {
     "vis": ("mtg_fd:vis06_hrfi", "", 0.7, True),
     "geo": ("mtg_fd:rgb_geocolour", "", 1.4, False),
     "lampi": ("mtg_fd:li_afa", "", 0, False),
+    # infrarosso su una zona molto piu' grande (circa 2 km per pixel), solo per la previsione: le nubi che nelle
+    # prossime 6 ore entreranno nella mappa adesso sono FUORI dalla mappa, e vanno viste per poterle far entrare
+    "largo": ("mtg_fd:ir105_hrfi", "mtg_fd:mtg_fd_ir105_hrfi_grayscale", 0, False),
 }
+BBOX_LARGO = (BBOX[0] - 2.6, BBOX[1] + 2.6, BBOX[2] - 2.0, BBOX[3] + 2.0)
+LARGHEZZA_LARGO = 400
+ALTEZZA_LARGO = int(round(LARGHEZZA_LARGO * (BBOX_LARGO[3] - BBOX_LARGO[2]) / (BBOX_LARGO[1] - BBOX_LARGO[0])
+                          / math.cos(math.radians(42.1))))
 # prodotti "per esperti" (oltre alla mappa con le nubi, che e' il prodotto principale)
 PRODOTTI = [("visibile", "Visibile HD"), ("colori", "Colori reali"), ("infrarosso", "Infrarosso"), ("topnubi", "Top nubi")]
 # cambiando VERSIONE tutte le immagini vengono ridisegnate (serve quando cambia lo stile)
@@ -116,8 +123,9 @@ def coseno_zenitale(t, lon, lat):
 
 def scarica_uno(nome, t, cartella):
     strato, stile, _, _ = STRATI[nome]
+    bb, lg, al = (BBOX_LARGO, LARGHEZZA_LARGO, ALTEZZA_LARGO) if nome == "largo" else (BBOX, LARGHEZZA, ALTEZZA)
     url = (f"{WMS}?service=WMS&version=1.3.0&request=GetMap&layers={strato}&styles={stile}&crs=EPSG:4326"
-           f"&bbox={BBOX[2]},{BBOX[0]},{BBOX[3]},{BBOX[1]}&width={LARGHEZZA}&height={ALTEZZA}"
+           f"&bbox={bb[2]},{bb[0]},{bb[3]},{bb[1]}&width={lg}&height={al}"
            f"&format=image/png&transparent=true&time={t:%Y-%m-%dT%H:%M}:00Z")
     for n in range(2):
         try:
@@ -382,6 +390,51 @@ def campi_zona(cache, t, tab, mappa_b, z, pk):
     return {"T": T, "vis": vis, "cosz": cosz, "alfa": alfa, "lum": lum}
 
 
+def campi_larghi(cache, seq, mezza, tab, lon_m, lat_m):
+    """Nubi sulla zona grande (solo infrarosso, circa 2 km) per gli istanti della previsione. Dentro la mappa si usano
+    le nubi vere della mappa (visibile + infrarosso); fuori, quelle dell'infrarosso rese simili (stessa distribuzione)
+    a quelle della mappa nella parte in comune. Ritorna il dizionario per previsione_nubi.prevedi o None."""
+    dx = (BBOX_LARGO[1] - BBOX_LARGO[0]) / LARGHEZZA_LARGO
+    dy = (BBOX_LARGO[3] - BBOX_LARGO[2]) / ALTEZZA_LARGO
+    lon_l = BBOX_LARGO[0] + (np.arange(LARGHEZZA_LARGO) + 0.5) * dx
+    lat_l = BBOX_LARGO[3] - (np.arange(ALTEZZA_LARGO) + 0.5) * dy
+    LO, LA = np.meshgrid(lon_l, lat_l)
+    pk_l = dx * 111.0 * math.cos(math.radians(42.1))
+    # posizione dei pixel larghi nella griglia della mappa (meta' definizione)
+    H, W = lon_m.shape
+    l0, l1 = lon_m[0, 0], lon_m[0, -1]
+    a0, a1 = lat_m[0, 0], lat_m[-1, 0]
+    jx = ((LO - l0) / (l1 - l0) * (W - 1)).astype("float32")
+    iy = ((LA - a0) / (a1 - a0) * (H - 1)).astype("float32")
+    dentro = (jx >= 0) & (jx <= W - 1) & (iy >= 0) & (iy <= H - 1)
+    fattore = max(pk_l / ((l1 - l0) / (W - 1) * 111.0 * math.cos(math.radians(42.1))), 1.0)
+    campi = []
+    for t in seq:
+        g = leggi(cache, "largo", t)
+        if g is None:
+            return None
+        T = a_temp(g, tab)
+        alfa_ir, _ = nubi.copertura(T, None, np.zeros(T.shape), pk_l)
+        al_m, lu_m = mezza[t]
+        sig = fattore / 2.5
+        a_m = cv2.remap(ndimage.gaussian_filter(al_m, sig).astype("float32"), jx, iy, cv2.INTER_LINEAR,
+                        borderMode=cv2.BORDER_CONSTANT, borderValue=float("nan"))
+        l_m = cv2.remap(ndimage.gaussian_filter(lu_m, sig).astype("float32"), jx, iy, cv2.INTER_LINEAR,
+                        borderMode=cv2.BORDER_CONSTANT, borderValue=float("nan"))
+        m = dentro & np.isfinite(a_m)
+        if m.sum() > 2000:
+            p = np.linspace(0, 100, 101)
+            qi, qm = np.percentile(alfa_ir[m], p), np.percentile(a_m[m], p)
+            qi, k = np.unique(qi, return_index=True)
+            alfa_f = np.interp(alfa_ir, qi, qm[k]) if qi.size > 1 else alfa_ir
+        else:
+            alfa_f = alfa_ir
+        alfa = np.where(m, a_m, alfa_f)
+        lum = np.where(m, l_m, 0.80 + 0.20 * alfa_f)
+        campi.append((alfa.astype("float64"), lum.astype("float64")))
+    return {"campi": campi, "lon": LO, "lat": LA, "passo_km": pk_l}
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--cache", required=True)
@@ -528,7 +581,13 @@ def main():
             tempi_voluti.append(t)
             t += timedelta(minutes=10)
         try:
-            prev_nubi, info_nubi = previsione_nubi.prevedi([mezza[t] for t in seq], t_ult, tempi_voluti, wrf_prev, lon_m, lat_m, pk_mezza)
+            try:
+                largo = campi_larghi(cache, seq, mezza, tab, lon_m, lat_m)
+            except Exception as e:  # noqa: BLE001
+                largo = None
+                print("ATTENZIONE: zona grande per la previsione non disponibile:", e, file=sys.stderr)
+            prev_nubi, info_nubi = previsione_nubi.prevedi([mezza[t] for t in seq], t_ult, tempi_voluti, wrf_prev, lon_m, lat_m,
+                                                           pk_mezza, largo=largo)
         except Exception as e:  # noqa: BLE001
             info_nubi = {"errore": str(e)[:300]}
             print("ATTENZIONE: previsione nubi non riuscita:", e, file=sys.stderr)

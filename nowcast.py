@@ -482,7 +482,7 @@ def calcola(radar, wrf_prev=None, ponte_fn=None, pagella=None):
         for c in wrf_prev.centri:
             if t0 - timedelta(hours=1) <= c <= t0 + timedelta(minutes=passi * PASSO_MIN) + timedelta(hours=1):
                 campo = fusione.applica_tabella(fusione.deforma(ponte.porta(wrf_prev.campo(c)), *corr_spost), tab_evo)
-                orari.append((c, db(campo)))
+                orari.append((c, np.where(np.isfinite(campo), db(campo), np.nan)))   # NaN = fuori dal WRF
         flussi = []
         for (ca, a), (cb, b) in zip(orari[:-1], orari[1:]):
             sa = ndimage.gaussian_filter(np.nan_to_num(a, nan=secco), 4)
@@ -515,8 +515,8 @@ def calcola(radar, wrf_prev=None, ponte_fn=None, pagella=None):
                 if ca <= t <= cb:
                     f = (t - ca).total_seconds() / (cb - ca).total_seconds()
                     u, v = flussi[j]
-                    pa = fusione.deforma(np.nan_to_num(a, nan=secco), u, v, f)
-                    pb = fusione.deforma(np.nan_to_num(b, nan=secco), u, v, -(1 - f))
+                    pa = fusione.deforma(a, u, v, f)
+                    pb = fusione.deforma(b, u, v, -(1 - f))
                     campi_db[k] = np.where(np.isfinite(pa) & np.isfinite(pb), (1 - f) * pa + f * pb,
                                            np.where(np.isfinite(pa), pa, pb))
                     break

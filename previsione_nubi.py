@@ -61,7 +61,7 @@ def correlazione(a, b, m):
     return float(np.corrcoef(a, b)[0, 1])
 
 
-def prevedi(campi, t_ultimo, tempi_voluti, wrf_prev, lon, lat, passo_km):
+def _prevedi(campi, t_ultimo, tempi_voluti, wrf_prev, lon, lat, passo_km):
     """campi: lista di (alfa, lum) a mezza definizione, ogni 10 minuti, l'ultimo a t_ultimo.
     tempi_voluti: istanti (datetime) per cui serve la previsione (anche prima di adesso, se il satellite e' in ritardo).
     lon, lat: coordinate della griglia (mezza definizione). Ritorna {istante: (alfa, lum)} e un dizionario di info."""
@@ -142,8 +142,8 @@ def prevedi(campi, t_ultimo, tempi_voluti, wrf_prev, lon, lat, passo_km):
                 if ta <= t <= tb:
                     f = (t - ta).total_seconds() / (tb - ta).total_seconds()
                     u_, v_ = flussi[j_]
-                    pa = fusione.deforma(np.nan_to_num(a), u_, v_, f)
-                    pb = fusione.deforma(np.nan_to_num(b), u_, v_, -(1 - f))
+                    pa = fusione.deforma(a, u_, v_, f)
+                    pb = fusione.deforma(b, u_, v_, -(1 - f))
                     return np.where(np.isfinite(pa) & np.isfinite(pb), (1 - f) * pa + f * pb, np.where(np.isfinite(pa), pa, pb))
             return None
         campi_w = {}
@@ -197,13 +197,15 @@ def prevedi(campi, t_ultimo, tempi_voluti, wrf_prev, lon, lat, passo_km):
             mov_orari = [(ta, tb, ndimage.gaussian_filter(mu, 25), ndimage.gaussian_filter(mv, 25)) for ta, tb, mu, mv in mov_orari]
             info["peso_evoluzione_wrf"] = 1.0
             info["modalita"] = "wrf_totale"
+            dentro_l = []
             evo, val, ev_info = evoluzione.evolvi(np.nan_to_num(alfa0), np.isfinite(alfa0), campi_w, mov_liscio, mov_orari_passo,
                                                   passi, PASSO, sigma=3.0, minimo=0.0, massimo=1.0, tau_mov=1e-6,
-                                                  peso_tendenza=1.0, max_tendenza=1.0)
+                                                  peso_tendenza=1.0, max_tendenza=1.0, dentro=dentro_l)
         else:
+            dentro_l = []
             evo, val, ev_info = evoluzione.evolvi(np.nan_to_num(alfa0), np.isfinite(alfa0), campi_w, mov_liscio, mov_wrf, passi, PASSO,
                                                   sigma=8.0, minimo=0.0, massimo=1.0, tau_mov=60.0, peso_tendenza=peso_t,
-                                                  max_tendenza=0.5)
+                                                  max_tendenza=0.5, dentro=dentro_l)
         info["evoluzione"] = ev_info
         for t in tempi_voluti:
             k = int(round((t - t_ultimo).total_seconds() / 60 / PASSO))
@@ -212,6 +214,7 @@ def prevedi(campi, t_ultimo, tempi_voluti, wrf_prev, lon, lat, passo_km):
             a = evo[k - 1]
             lm = np.where(valido[k - 1], l_est[k - 1], 0.85).astype("float64")
             out[t] = (np.clip(a, 0, 1), np.clip(lm, 0, 1))
+            info.setdefault("_dentro", {})[t] = dentro_l[k - 1]
         return out, info
     sfuma = lambda m: ndimage.gaussian_filter(m.astype("float64"), 10)  # noqa: E731  passaggi morbidi (circa 6 km)
     for t in tempi_voluti:
@@ -241,6 +244,37 @@ def prevedi(campi, t_ultimo, tempi_voluti, wrf_prev, lon, lat, passo_km):
         else:
             a = v * a
         out[t] = (np.clip(a, 0, 1), np.clip(lm, 0, 1))
+        info.setdefault("_dentro", {})[t] = valido[k - 1]
+    return out, info
+
+
+def prevedi(campi, t_ultimo, tempi_voluti, wrf_prev, lon, lat, passo_km, largo=None):
+    """Previsione delle nubi sulla mappa. Con 'largo' (zona molto piu' grande, vedi satellite.campi_larghi) le nubi che
+    entrano nella mappa da fuori sono quelle vere che adesso stanno fuori, previste sulla zona grande: cosi' i bordi
+    della mappa non si svuotano."""
+    out, info = _prevedi(campi, t_ultimo, tempi_voluti, wrf_prev, lon, lat, passo_km)
+    dentro = info.pop("_dentro", {})
+    if not largo or not out:
+        return out, info
+    try:
+        out_l, info_l = _prevedi(largo["campi"], t_ultimo, tempi_voluti, wrf_prev, largo["lon"], largo["lat"], largo["passo_km"])
+        info_l.pop("_dentro", None)
+    except Exception as e:  # noqa: BLE001
+        info["zona_grande"] = {"errore": str(e)[:200]}
+        return out, info
+    LO, LA = largo["lon"], largo["lat"]
+    jx = ((lon - LO[0, 0]) / (LO[0, -1] - LO[0, 0]) * (LO.shape[1] - 1)).astype("float32")
+    iy = ((lat - LA[0, 0]) / (LA[-1, 0] - LA[0, 0]) * (LA.shape[0] - 1)).astype("float32")
+    for t, (a, lm) in out.items():
+        if t not in out_l or t not in dentro:
+            continue
+        al, ll = out_l[t]
+        A = cv2.remap(np.asarray(al, "float32"), jx, iy, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE)
+        L = cv2.remap(np.asarray(ll, "float32"), jx, iy, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE)
+        w = np.clip(ndimage.gaussian_filter(dentro[t].astype("float32"), 8) * 2 - 1, 0, 1)
+        out[t] = (w * a + (1 - w) * A, w * lm + (1 - w) * L)
+    info["zona_grande"] = {"usata": True, "passo_km": round(largo["passo_km"], 2),
+                           "velocita_kmh": info_l.get("velocita_kmh"), "direzione": info_l.get("direzione")}
     return out, info
 
 
