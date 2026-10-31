@@ -184,9 +184,26 @@ def prevedi(campi, t_ultimo, tempi_voluti, wrf_prev, lon, lat, passo_km):
         mov_liscio = (ndimage.gaussian_filter(u, 40), ndimage.gaussian_filter(v, 40))
         peso_t = float(np.clip(w_info.get("correlazione_dopo") or 0.0, 0.0, 0.9))
         info["peso_evoluzione_wrf"] = round(peso_t, 2)
-        evo, val, ev_info = evoluzione.evolvi(np.nan_to_num(alfa0), np.isfinite(alfa0), campi_w, mov_liscio, mov_wrf, passi, PASSO,
-                                              sigma=8.0, minimo=0.0, massimo=1.0, tau_mov=60.0, peso_tendenza=peso_t,
-                                              max_tendenza=0.5)
+        if nowcast.WRF_TOTALE and mov_orari:
+            # PROVA "WRF TOTALE": le nubi viste adesso si muovono come le nubi del WRF, zona per zona, e si formano o
+            # si dissolvono come nel WRF, a peso pieno
+            def mov_orari_passo(k):
+                t = t_ultimo + timedelta(minutes=k * PASSO - PASSO / 2)
+                for ta, tb, mu, mv in mov_orari:
+                    if ta <= t <= tb:
+                        return mu, mv
+                return None
+            # movimento del WRF zona per zona, lisciato (circa 30 km) per non attorcigliare le nubi
+            mov_orari = [(ta, tb, ndimage.gaussian_filter(mu, 25), ndimage.gaussian_filter(mv, 25)) for ta, tb, mu, mv in mov_orari]
+            info["peso_evoluzione_wrf"] = 1.0
+            info["modalita"] = "wrf_totale"
+            evo, val, ev_info = evoluzione.evolvi(np.nan_to_num(alfa0), np.isfinite(alfa0), campi_w, mov_liscio, mov_orari_passo,
+                                                  passi, PASSO, sigma=3.0, minimo=0.0, massimo=1.0, tau_mov=1e-6,
+                                                  peso_tendenza=1.0, max_tendenza=1.0)
+        else:
+            evo, val, ev_info = evoluzione.evolvi(np.nan_to_num(alfa0), np.isfinite(alfa0), campi_w, mov_liscio, mov_wrf, passi, PASSO,
+                                                  sigma=8.0, minimo=0.0, massimo=1.0, tau_mov=60.0, peso_tendenza=peso_t,
+                                                  max_tendenza=0.5)
         info["evoluzione"] = ev_info
         for t in tempi_voluti:
             k = int(round((t - t_ultimo).total_seconds() / 60 / PASSO))

@@ -57,6 +57,19 @@ def in_8bit(r):
     return np.clip((d + 15.0) * (255.0 / 35.0), 0, 255).astype(np.uint8)
 
 
+def _wrf_totale():
+    """Prova "WRF totale" (file modalita.json, voce wrf_totale): previsione rielaborata solo con il WRF."""
+    try:
+        import json as _j
+        import os as _o
+        return bool(_j.load(open(_o.path.join(_o.path.dirname(_o.path.abspath(__file__)), "modalita.json"))).get("wrf_totale"))
+    except Exception:  # noqa: BLE001
+        return False
+
+
+WRF_TOTALE = _wrf_totale()
+
+
 def flusso_coppia(a, b):
     """Spostamento (colonne, righe) che porta l'immagine a sull'immagine b."""
     dis = cv2.DISOpticalFlow_create(cv2.DISOPTICAL_FLOW_PRESET_MEDIUM)
@@ -532,9 +545,25 @@ def calcola(radar, wrf_prev=None, ponte_fn=None, pagella=None):
     acc = wrf_info.get("correlazione_dopo") if wrf_info.get("usato") else None
     peso_t = float(np.clip((acc or 0.0), 0.0, 0.9))
     info["peso_evoluzione_wrf"] = round(peso_t, 2)
-    evo, evo_val, evo_info = evoluzione.evolvi(db(radar0), noto0, campi_db, mov_oss_liscio, mov_wrf_passo if wrf_evo else None,
-                                               passi, PASSO_MIN, sigma=12.0, minimo=secco, massimo=23.0, tau_mov=60.0,
-                                               peso_tendenza=peso_t, max_tendenza=12.0)
+    if WRF_TOTALE and wrf_evo and mov_orari:
+        # PROVA "WRF TOTALE": l'ultimo scatto del radar viene rielaborato seguendo SOLO il WRF: si muove come si muove la
+        # pioggia del WRF (zona per zona, anche in direzioni diverse) e cresce/cala/nasce/muore come nel WRF, a peso pieno.
+        def mov_orari_passo(k):
+            t = t0 + timedelta(minutes=k * PASSO_MIN - PASSO_MIN / 2)
+            for ta, tb, mu, mv in mov_orari:
+                if ta <= t <= tb:
+                    return mu, mv
+            return None
+        vento_info = "WRF totale: movimento e evoluzione solo dal WRF"
+        info["peso_evoluzione_wrf"] = 1.0
+        info["modalita"] = "wrf_totale"
+        evo, evo_val, evo_info = evoluzione.evolvi(db(radar0), noto0, campi_db, mov_oss_liscio, mov_orari_passo,
+                                                   passi, PASSO_MIN, sigma=5.0, minimo=secco, massimo=23.0, tau_mov=1e-6,
+                                                   peso_tendenza=1.0, max_tendenza=30.0)
+    else:
+        evo, evo_val, evo_info = evoluzione.evolvi(db(radar0), noto0, campi_db, mov_oss_liscio, mov_wrf_passo if wrf_evo else None,
+                                                   passi, PASSO_MIN, sigma=12.0, minimo=secco, massimo=23.0, tau_mov=60.0,
+                                                   peso_tendenza=peso_t, max_tendenza=12.0)
     evol = [np.where(v, np.where(x > secco + 0.5, 10 ** (x / 10.0), 0.0), np.nan).astype("float32") for x, v in zip(evo, evo_val)]
     info["evoluzione"] = {**evo_info, "movimento": vento_info}
 
