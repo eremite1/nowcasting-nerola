@@ -159,6 +159,12 @@
   .motivo.gelicidio i { background-image: repeating-linear-gradient(-45deg, rgba(255,255,255,.75) 0 2px, transparent 2px 12px), repeating-linear-gradient(45deg, rgba(255,255,255,.75) 0 2px, transparent 2px 12px); }
   .motivo.grandine i { background-color: #ff3c00; background-image: radial-gradient(circle, rgba(255,255,255,.95) 1.6px, transparent 2px); background-size: 8px 8px; }
   .legende { padding-top: 6px; }
+  .schede { display: flex; gap: 10px; flex-wrap: wrap; }
+  .schede button { flex: 1; min-width: 200px; padding: 12px 16px; border-radius: 14px; border: 2px solid var(--linea); background: var(--card);
+                   color: var(--testo); font: inherit; font-weight: 700; font-size: 1.02rem; cursor: pointer; text-align: left; }
+  .schede button small { display: block; font-weight: 400; font-size: .8rem; color: var(--muto); margin-top: 2px; }
+  .schede button[aria-selected="true"] { border-color: var(--accento); background: var(--evid); color: var(--accento); }
+  section[hidden] { display: none !important; }
 </style>
 </head>
 <body>
@@ -197,6 +203,11 @@
     <div class="allerte" id="allerte"></div>
   </section>
 
+  <div class="schede" role="tablist" aria-label="Scegli la mappa">
+    <button role="tab" data-scheda="sez-radar" aria-selected="true">📡 Mappa base<small>il radar, semplice e chiaro</small></button>
+    <button role="tab" data-scheda="sez-mappa" aria-selected="false">🗺️ Mappa per esperti<small>zoom, nubi, fulmini, satellite e fondi diversi</small></button>
+  </div>
+
   <section class="card" id="sez-radar">
     <div class="titolo-sez">
       <h2>📡 Radar</h2>
@@ -226,14 +237,12 @@
     <div class="legende">
       <div class="scala-cont"><span>pioggia mm/h</span><div class="barra-col" data-scala></div></div>
       <span class="motivo neve"><i></i>neve</span>
-      <span class="motivo mista"><i></i>mista</span>
-      <span class="motivo gelicidio"><i></i>gelicidio</span>
       <span class="motivo grandine"><i></i>grandine</span>
       
     </div>
   </section>
 
-  <section class="card" id="sez-mappa">
+  <section class="card" id="sez-mappa" hidden>
     <div class="titolo-sez">
       <h2>🗺️ Mappa interattiva</h2>
       <p>avvicinati quanto vuoi: paesi, strade e rilievo diventano sempre più dettagliati. Tocca un punto per sapere se lì pioverà.</p>
@@ -284,8 +293,6 @@
     <div class="legende">
       <div class="scala-cont"><span>pioggia mm/h</span><div class="barra-col" data-scala></div></div>
       <span class="motivo neve"><i></i>neve</span>
-      <span class="motivo mista"><i></i>mista</span>
-      <span class="motivo gelicidio"><i></i>gelicidio</span>
       <span class="motivo grandine"><i></i>grandine</span>
       <span class="lampo"><b style="background:#fff36b;border:1px solid #333"></b>fulmini 0-10 min</span>
       <span class="lampo"><b style="background:#ff9a1f"></b>10-30 min</span>
@@ -856,6 +863,7 @@
       $("errore").style.display = "none";
       riempiScala(); riempiAdesso(); situazione(); pagella();
       const g1 = LR.gioca, g2 = LM.gioca; preparaRadar(); preparaCarta(); if (g1) LR.avvia(true); if (g2) LM.avvia(true);
+      if (prima) { let sc = "sez-radar"; try { sc = localStorage.getItem("mn_scheda") || sc; } catch (e) { /* niente */ } if ($(sc)) mostraScheda(sc); }
     } catch (e) {
       $("errore").style.display = "block"; $("errore").textContent = "Dati non disponibili al momento (" + e.message + "). Riprovo tra poco.";
     }
@@ -880,6 +888,16 @@
     M.esperto = e.target.value; $("info-esperti").style.display = M.esperto ? "block" : "none"; $("info-esperti").textContent = INFO_ESPERTI[M.esperto] || "";
     document.querySelector("[data-strato=nubi]").disabled = !!M.esperto; preparaCarta();
   });
+  // due schede: si vede una mappa alla volta (la scelta resta ricordata su questo dispositivo)
+  function mostraScheda(id) {
+    document.querySelectorAll("[data-scheda]").forEach((b) => {
+      const si = b.dataset.scheda === id; b.setAttribute("aria-selected", si); $(b.dataset.scheda).hidden = !si;
+    });
+    if (id === "sez-mappa") { LR.avvia(false); if (M.carta) { M.carta.invalidateSize(); if (!M.vista) { const q = S.radar.zone.lazio.riquadro; M.carta.fitBounds([[q[2], q[0]], [q[3], q[1]]]); M.vista = true; } M.riposiziona(); } }
+    else LM.avvia(false);
+    try { localStorage.setItem("mn_scheda", id); } catch (e) { /* niente */ }
+  }
+  document.querySelectorAll("[data-scheda]").forEach((b) => b.addEventListener("click", () => mostraScheda(b.dataset.scheda)));
   $("fondo").addEventListener("change", (e) => { scegliFondo(e.target.value); etichetteEsperti(); });
   // una sola animazione per tutta la pagina: ogni sezione ha il suo tempo
   let ultimoTempo = 0;

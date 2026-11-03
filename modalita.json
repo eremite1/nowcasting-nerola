@@ -1,1 +1,2 @@
-{"wrf_totale": true, "nota": "prova: previsione rielaborata solo con il WRF (false = metodo normale)"}
+{"wrf_totale_radar": false, "wrf_totale_nubi": true,
+ "nota": "radar: movimento misurato e verificato (il WRF totale muoveva le celle in modo innaturale); nubi: prova WRF totale"}

@@ -57,17 +57,18 @@ def in_8bit(r):
     return np.clip((d + 15.0) * (255.0 / 35.0), 0, 255).astype(np.uint8)
 
 
-def _wrf_totale():
-    """Prova "WRF totale" (file modalita.json, voce wrf_totale): previsione rielaborata solo con il WRF."""
+def _wrf_totale(voce):
+    """Prova "WRF totale" (file modalita.json): previsione rielaborata solo con il WRF, separata per radar e nubi."""
     try:
         import json as _j
         import os as _o
-        return bool(_j.load(open(_o.path.join(_o.path.dirname(_o.path.abspath(__file__)), "modalita.json"))).get("wrf_totale"))
+        return bool(_j.load(open(_o.path.join(_o.path.dirname(_o.path.abspath(__file__)), "modalita.json"))).get(voce))
     except Exception:  # noqa: BLE001
         return False
 
 
-WRF_TOTALE = _wrf_totale()
+WRF_TOTALE = _wrf_totale("wrf_totale_radar")
+WRF_TOTALE_NUBI = _wrf_totale("wrf_totale_nubi")
 
 
 def flusso_coppia(a, b):

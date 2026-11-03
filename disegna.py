@@ -193,9 +193,8 @@ def salva_pioggia(valori, percorso, tipo=None, grandine=None):
     idx[piove] = I_BASE + liv[piove]
     m = motivi(v.shape)
     if tipo is not None:
-        for codice, nome in ((2, "neve"), (1, "mista"), (4, "mista"), (3, "gelicidio")):
-            sel = piove & (tipo == codice) & m[nome]
-            idx[sel] = I_RIGHE + liv[sel]
+        sel = piove & (tipo == 2) & m["neve"]          # solo due distinzioni: neve (righe) e grandine (puntini)
+        idx[sel] = I_RIGHE + liv[sel]
     if grandine is not None:
         sel = piove & grandine & m["grandine"]
         idx[sel] = I_PUNTI + liv[sel]
@@ -512,8 +511,7 @@ def main():
     # scala unica e continua (per la legenda della pagina) e motivi per il tipo
     indice["scala"] = [[float(round(v, 2)), "#%02x%02x%02x" % tuple(int(round(c)) for c in colore_continuo(np.array(v)))]
                        for v in np.geomspace(0.2, 100.0, 24)]
-    indice["motivi"] = {"neve": "righe oblique fitte", "mista": "righe oblique rade", "gelicidio": "righe incrociate",
-                        "grandine": "puntini bianchi"}
+    indice["motivi"] = {"neve": "righe oblique", "grandine": "puntini bianchi"}
     # tipo a Nerola (per il riassunto)
     cN, rN = nc["griglia"].indici(np.array([NEROLA[1]]), np.array([NEROLA[0]]))
     cN, rN = int(round(float(cN[0]))), int(round(float(rN[0])))

@@ -184,7 +184,7 @@ def _prevedi(campi, t_ultimo, tempi_voluti, wrf_prev, lon, lat, passo_km, mov_fi
         mov_liscio = (ndimage.gaussian_filter(u, 40), ndimage.gaussian_filter(v, 40))
         peso_t = float(np.clip(w_info.get("correlazione_dopo") or 0.0, 0.0, 0.9))
         info["peso_evoluzione_wrf"] = round(peso_t, 2)
-        if nowcast.WRF_TOTALE and mov_orari:
+        if nowcast.WRF_TOTALE_NUBI and mov_orari:
             # PROVA "WRF TOTALE": le nubi viste adesso si muovono come le nubi del WRF, zona per zona, e si formano o
             # si dissolvono come nel WRF, a peso pieno
             def mov_orari_passo(k):
