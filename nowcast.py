@@ -562,7 +562,13 @@ def calcola(radar, wrf_prev=None, ponte_fn=None, pagella=None):
                                                    passi, PASSO_MIN, sigma=5.0, minimo=secco, massimo=23.0, tau_mov=1e-6,
                                                    peso_tendenza=1.0, max_tendenza=30.0)
     else:
-        evo, evo_val, evo_info = evoluzione.evolvi(db(radar0), noto0, campi_db, mov_oss_liscio, mov_wrf_passo if wrf_evo else None,
+        # il vento del WRF prende il posto del movimento misurato solo se oggi il WRF ci sta prendendo: con una corsa
+        # vecchia o sbagliata trascinerebbe le celle in direzioni e velocita' che il radar non mostra
+        usa_vento = bool(wrf_evo) and peso_t >= 0.3
+        if not usa_vento:
+            vento_info = "movimento misurato sul radar ogni 10 minuti (lisciato), per tutte le 6 ore"
+        info["vento_wrf_usato"] = usa_vento
+        evo, evo_val, evo_info = evoluzione.evolvi(db(radar0), noto0, campi_db, mov_oss_liscio, mov_wrf_passo if usa_vento else None,
                                                    passi, PASSO_MIN, sigma=12.0, minimo=secco, massimo=23.0, tau_mov=60.0,
                                                    peso_tendenza=peso_t, max_tendenza=12.0)
     evol = [np.where(v, np.where(x > secco + 0.5, 10 ** (x / 10.0), 0.0), np.nan).astype("float32") for x, v in zip(evo, evo_val)]
