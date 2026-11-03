@@ -118,45 +118,106 @@ def ammorbidisci(campo, sigma):
 
 # ------------------------------------------------------------------------------------------ livelli trasparenti
 
+# Scala unica e continua dell'intensita' (le stesse tinte delle soglie classiche, sfumate tra una soglia e l'altra).
+# Il tipo di precipitazione NON cambia il colore: si vede con un motivo semitrasparente sopra il colore.
+LIVELLI = np.geomspace(0.2, 150.0, 60)          # 60 gradini di intensita' (mm/h)
+I_BASE, I_RIGHE, I_PUNTI = 2, 62, 122           # indici della tavolozza: colore, colore + righe chiare, colore + puntini
+
+
+def colore_continuo(v):
+    """Colore RGB (0-255) per l'intensita' v (mm/h), interpolato in scala logaritmica tra le soglie."""
+    x = np.log(np.clip(v, SOGLIE[0], SOGLIE[-1]))
+    xs = np.log(SOGLIE)
+    rgb = np.array([hex_rgb(c) for c in COLORI], dtype="float64")
+    return np.stack([np.interp(x, xs, rgb[:, k]) for k in range(3)], axis=-1)
+
+
 def tavolozza_pioggia():
-    """0 trasparente, 1 nessun dato, 2-13 pioggia, 14-19 neve, 20-23 mista, 24-26 gelicidio, 27-29 granuli."""
+    """0 trasparente, 1 nessun dato, 2-61 intensita', 62-121 intensita' con righe chiare (neve, mista, gelicidio),
+    122-181 intensita' con puntini bianchi (grandine)."""
     pal = [0, 0, 0] + list(hex_rgb(GRIGIO_NODATO[0]))
     alfa = [0, GRIGIO_NODATO[1]]
-    for c, a in zip(COLORI, ALFA):
-        pal += list(hex_rgb(c))
-        alfa.append(a)
-    for c in COLORI_NEVE + COLORI_MISTA + COLORI_GELICIDIO + COLORI_GRANULI:
-        pal += list(hex_rgb(c))
-        alfa.append(240)
+    base = colore_continuo(LIVELLI)
+    a = np.interp(np.log(LIVELLI), np.log([0.2, 1.0]), [185, 235])
+    for mescola, extra in ((0.0, 0), (0.62, 15), (0.85, 20)):
+        c = base * (1 - mescola) + 255 * mescola
+        for rgb, al in zip(c, a):
+            pal += [int(round(x)) for x in rgb]
+            alfa.append(int(min(255, al + extra)))
     return pal, alfa
 
 
-def salva_pioggia(valori, percorso, tipo=None):
-    """Immagine a tavolozza: indice 0 = trasparente (non piove), 1 = grigio (nessun dato), poi le classi.
-    tipo: matrice 0 pioggia / 1 mista / 2 neve (stessa forma), o None."""
+def motivi(forma):
+    """Motivi in pixel dell'immagine: righe oblique fitte (neve), rade (mista), incrociate (gelicidio), puntini (grandine)."""
+    i, j = np.indices(forma)
+    return {"neve": ((i + j) % 9) < 3,
+            "mista": ((i + j) % 18) < 3,
+            "gelicidio": (((i + j) % 12) < 2) | (((j - i) % 12) < 2),
+            "grandine": ((i % 8 - 3.5) ** 2 + ((j + 4 * ((i // 8) % 2)) % 8 - 3.5) ** 2) <= 3.2}
+
+
+def ricampiona_pioggia(campo, mappa):
+    """Pioggia sulla griglia dell'immagine con interpolazione cubica in decibel: le celle restano nette e con i loro
+    nuclei (l'interpolazione lineare dei mm/h 'spalma' tutto in macchie tonde)."""
+    a = np.asarray(campo, dtype="float32")
+    noto = np.isfinite(a).astype("float32")
+    d = 10 * np.log10(np.maximum(np.nan_to_num(a, nan=0.0), 0.05))
+    mx, my = mappa
+    v = cv2.remap(d.astype("float32"), mx, my, cv2.INTER_CUBIC, borderMode=cv2.BORDER_CONSTANT, borderValue=-13.0)
+    n = cv2.remap(noto, mx, my, cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT, borderValue=0)
+    v = 10 ** (v / 10.0)
+    v = np.where(v < 0.15, 0.0, v)
+    return np.where(n > 0.5, v, np.nan)
+
+
+def ricampiona_tipo(tipo, mappa):
+    """Tipo di precipitazione (0-4) sull'immagine, con bordi morbidi (niente scalini da 1 km)."""
+    if tipo is None:
+        return None
+    t = np.asarray(tipo)
+    out = np.zeros(mappa[0].shape, dtype=np.uint8)
+    for c in (1, 2, 3, 4):
+        m = ricampiona((t == c).astype("float32"), mappa)
+        out[np.nan_to_num(m) > 0.5] = c
+    return out
+
+
+def salva_pioggia(valori, percorso, tipo=None, grandine=None):
+    """Immagine a tavolozza. valori: mm/h (NaN = nessun dato). tipo: 0 pioggia, 1 mista, 2 neve, 3 gelicidio,
+    4 granuli (o None). grandine: matrice vero/falso dove il radar vede probabile grandine (o None)."""
     idx = np.zeros(valori.shape, dtype=np.uint8)
     nodato = ~np.isfinite(valori)
     v = np.nan_to_num(valori, nan=0.0)
-    classe = np.digitize(v, SOGLIE)        # 0 sotto la prima soglia
-    idx[classe > 0] = classe[classe > 0] + 1
+    piove = v >= LIVELLI[0]
+    liv = np.clip(np.searchsorted(LIVELLI, v, side="right") - 1, 0, len(LIVELLI) - 1)
+    idx[piove] = I_BASE + liv[piove]
+    m = motivi(v.shape)
     if tipo is not None:
-        neve = (tipo == 2) & (v >= SOGLIE_NEVE[0])
-        cn = np.digitize(v, SOGLIE_NEVE)
-        idx[neve] = 13 + cn[neve]
-        mista = (tipo == 1) & (v >= SOGLIE_MISTA[0])
-        cm = np.digitize(v, SOGLIE_MISTA)
-        idx[mista] = 19 + cm[mista]
-        gel = (tipo == 3) & (v >= SOGLIE_GELICIDIO[0])
-        cg = np.digitize(v, SOGLIE_GELICIDIO)
-        idx[gel] = 23 + cg[gel]
-        gra = (tipo == 4) & (v >= SOGLIE_GRANULI[0])
-        cr = np.digitize(v, SOGLIE_GRANULI)
-        idx[gra] = 26 + cr[gra]
+        for codice, nome in ((2, "neve"), (1, "mista"), (4, "mista"), (3, "gelicidio")):
+            sel = piove & (tipo == codice) & m[nome]
+            idx[sel] = I_RIGHE + liv[sel]
+    if grandine is not None:
+        sel = piove & grandine & m["grandine"]
+        idx[sel] = I_PUNTI + liv[sel]
     idx[nodato] = 1
     im = Image.fromarray(idx, "P")
     pal, alfa = tavolozza_pioggia()
     im.putpalette(pal + [0] * (768 - len(pal)))
-    im.save(percorso, optimize=True, transparency=bytes(alfa))
+    im.save(percorso, optimize=True, transparency=bytes(alfa + [0] * (256 - len(alfa))))
+
+
+def mappa_grandine(gr, griglia_dest_mappa_fn, soglia):
+    """{ora: matrice vero/falso} dove la probabilita' di grandine supera la soglia, sui pixel dell'immagine."""
+    out = {}
+    if not gr:
+        return out
+    mappa = griglia_dest_mappa_fn(gr["griglia"])
+    for t, campo in zip(gr["tempi"], gr["campi"]):
+        a = np.asarray(campo, dtype="float64")
+        if np.nanmax(a) <= 1.0 + 1e-6:
+            a = a * 100.0
+        out[t] = np.nan_to_num(ricampiona(a.astype("float32"), mappa)) >= soglia
+    return out
 
 
 def a_kelvin(a, diagnosi=None):
@@ -363,7 +424,7 @@ def composito(cartella, file_pioggia, titolo, sottotitolo, percorso):
         base.alpha_composite(Image.open(file_pioggia).convert("RGBA"))
     base.alpha_composite(Image.open(cartella / "confini.png").convert("RGBA"))
     W, H = base.size
-    alto, basso = 58, 46
+    alto, basso = 58, 56
     tela = Image.new("RGB", (W, H + alto + basso), "white")
     tela.paste(base.convert("RGB"), (0, alto))
     d = ImageDraw.Draw(tela)
@@ -378,12 +439,16 @@ def composito(cartella, file_pioggia, titolo, sottotitolo, percorso):
     # legenda
     x = 12
     y = H + alto + 8
-    passo = (W - 24 - 60) / len(COLORI)
     d.text((x, y + 2), "mm/h", fill="#333333", font=piccolo)
     x += 40
-    for i, c in enumerate(COLORI):
-        d.rectangle([x + i * passo, y, x + (i + 1) * passo - 2, y + 14], fill=c)
-        d.text((x + i * passo, y + 17), f"{SOGLIE[i]:g}", fill="#333333", font=piccolo)
+    larg = W - 24 - 40
+    lx = np.log(SOGLIE[0]), np.log(SOGLIE[-1])
+    for k in range(int(larg)):
+        val = math.exp(lx[0] + (lx[1] - lx[0]) * k / larg)
+        d.line([(x + k, y), (x + k, y + 14)], fill=tuple(int(c) for c in colore_continuo(np.array(val))))
+    for s_ in (0.2, 0.5, 1, 2, 5, 10, 20, 50, 100):
+        px = x + (math.log(s_) - lx[0]) / (lx[1] - lx[0]) * larg
+        d.text((px, y + 17), f"{s_:g}", fill="#333333", font=piccolo, anchor="ma")
     d.text((12, H + alto + basso - 4), "www.meteonerola.it", fill="#1d4e89", font=piccolo, anchor="lb")
     d.text((W - 12, H + alto + basso - 4), "Radar: Protezione Civile (DPC)", fill="#6b7480", font=piccolo, anchor="rb")
     tela.quantize(256, method=Image.Quantize.FASTOCTREE, dither=Image.Dither.NONE).save(percorso, optimize=True)
@@ -444,10 +509,11 @@ def main():
         with open(f"{a.dati}/grandine.pkl", "rb") as f:
             gr = pickle.load(f)
     indice["grandine"] = tipo_mod.grandine(gr, radar)
-    indice["soglie_neve"], indice["colori_neve"] = SOGLIE_NEVE, COLORI_NEVE
-    indice["soglie_mista"], indice["colori_mista"] = SOGLIE_MISTA, COLORI_MISTA
-    indice["soglie_gelicidio"], indice["colori_gelicidio"] = SOGLIE_GELICIDIO, COLORI_GELICIDIO
-    indice["soglie_granuli"], indice["colori_granuli"] = SOGLIE_GRANULI, COLORI_GRANULI
+    # scala unica e continua (per la legenda della pagina) e motivi per il tipo
+    indice["scala"] = [[float(round(v, 2)), "#%02x%02x%02x" % tuple(int(round(c)) for c in colore_continuo(np.array(v)))]
+                       for v in np.geomspace(0.2, 100.0, 24)]
+    indice["motivi"] = {"neve": "righe oblique fitte", "mista": "righe oblique rade", "gelicidio": "righe incrociate",
+                        "grandine": "puntini bianchi"}
     # tipo a Nerola (per il riassunto)
     cN, rN = nc["griglia"].indici(np.array([NEROLA[1]]), np.array([NEROLA[0]]))
     cN, rN = int(round(float(cN[0]))), int(round(float(rN[0])))
@@ -487,12 +553,25 @@ def main():
         voce = {"nome": z.nome, "larghezza": z.W, "altezza": z.H, "riquadro": [z.lon0, z.lon1, z.lat0, z.lat1],
                 "radar": [], "previsione": []}
         mappa = z.mappa_da(radar["griglia"])
+        tipo_px = ricampiona_tipo(tipo_oss, mappa)
+        try:
+            gr_px = mappa_grandine(gr, z.mappa_da, tipo_mod.SOGLIA_GRANDINE)
+        except Exception as e:  # noqa: BLE001
+            gr_px = {}
+            print("ATTENZIONE: zone di grandine non disegnate:", e, file=sys.stderr)
+        gr_tempi = sorted(gr_px)
         for t, campo in zip(radar["tempi"], radar["campi"]):
             if t > t0:
                 continue
             f = nome_file(t)
-            salva_pioggia(ricampiona(campo, mappa), cart / "radar" / f,
-                          None if tipo_oss is None else ricampiona(tipo_oss.astype("float32"), mappa, lineare=False).round())
+            v = ricampiona_pioggia(campo, mappa)
+            # grandine: probabilita' del radar nei 10 minuti precedenti, solo dove la pioggia e' intensa
+            gm = None
+            prima = [tg for tg in gr_tempi if tg <= t and (datetime.strptime(t, "%Y-%m-%dT%H:%MZ")
+                                                           - datetime.strptime(tg, "%Y-%m-%dT%H:%MZ")).total_seconds() <= 600]
+            if prima:
+                gm = gr_px[prima[-1]] & (np.nan_to_num(v) >= 5.0)
+            salva_pioggia(v, cart / "radar" / f, tipo_px, gm)
             voce["radar"].append({"file": f"radar/{f}", "ora": t})
         mappa_nc = z.mappa_da(nc["griglia"])
         for k, (t, campo) in enumerate(zip(nc["tempi"], nc["campi"])):
@@ -500,8 +579,7 @@ def main():
                 continue
             f = nome_file(t)
             tk = tipi.get(t)
-            salva_pioggia(ricampiona(campo, mappa_nc), cart / "previsione" / f,
-                          None if tk is None else ricampiona(tk.astype("float32"), mappa_nc, lineare=False).round())
+            salva_pioggia(ricampiona_pioggia(campo, mappa_nc), cart / "previsione" / f, ricampiona_tipo(tk, mappa_nc))
             voce["previsione"].append({"file": f"previsione/{f}", "ora": t, "minuti": k * 10, "peso_radar": nc["pesi"][k]})
         ultimo = voce["radar"][-1] if voce["radar"] else None
         loc = ora_locale(t0)

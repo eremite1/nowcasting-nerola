@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Satellite e radar Nerola</title>
 <meta name="description" content="Satellite ad alta definizione, radar e previsione della pioggia e delle nubi per le prossime 6 ore su Nerola, Sabina e Lazio.">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
 <style>
   :root {
     --bg: #eef2f6; --card: #ffffff; --testo: #17212b; --muto: #5d6b7a; --linea: #d9e0e7;
@@ -110,7 +111,7 @@
   #fumetto .chiudi { position: absolute; right: 8px; top: 4px; border: 0; background: none; font-size: 18px; color: var(--muto); cursor: pointer; }
   .barra { display: flex; gap: 10px; align-items: center; margin-top: 10px; flex-wrap: wrap; }
   .barra button { padding: 7px 12px; border: 1px solid var(--linea); background: var(--card); color: var(--testo); border-radius: 10px; font: inherit; font-size: .9rem; cursor: pointer; }
-  .barra button#gioca { background: var(--accento); color: var(--accento-testo); border-color: var(--accento); min-width: 56px; font-weight: 700; }
+  .barra button.gioca { background: var(--accento); color: var(--accento-testo); border-color: var(--accento); min-width: 56px; font-weight: 700; }
   .cursore-box { flex: 1; min-width: 220px; position: relative; padding-bottom: 18px; }
   input[type=range] { width: 100%; accent-color: var(--accento); }
   .tacche { position: absolute; left: 0; right: 0; bottom: 0; height: 16px; font-size: .72rem; color: var(--muto); font-weight: 600; }
@@ -137,6 +138,27 @@
   .nota { color: var(--muto); font-size: .78rem; margin-top: 8px; }
   footer { max-width: 1280px; margin: 0 auto; padding: 0 16px 24px; color: var(--muto); font-size: .74rem; }
   #errore { display: none; padding: 12px; border-radius: 10px; background: var(--prev-sfondo); color: var(--prev); }
+  /* ---- sezioni radar e mappa interattiva */
+  .titolo-sez { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0 0 10px; }
+  .titolo-sez h2 { margin: 0; font-size: 1.1rem; }
+  .titolo-sez p { margin: 0; color: var(--muto); font-size: .84rem; }
+  .palco-fisso { position: relative; border-radius: 10px; overflow: hidden; border: 1px solid var(--linea); background: #16314f;
+                 max-width: min(100%, calc((var(--vhp, 1vh) * 100 - 150px) * var(--forma, 1))); margin: 0 auto; }
+  .palco-fisso canvas { display: block; width: 100%; height: auto; }
+  #carta { height: min(calc(var(--vhp, 1vh) * 78), 760px); min-height: 420px; border-radius: 10px; border: 1px solid var(--linea); background: #c9d6df; }
+  #carta .leaflet-overlay-pane canvas { pointer-events: none; }
+  .leaflet-popup-content { width: 290px !important; margin: 12px 14px; font: 14px/1.4 system-ui, sans-serif; }
+  .leaflet-popup-content canvas { width: 100%; height: 70px; display: block; margin-top: 6px; }
+  .scala-cont { display: flex; align-items: center; gap: 8px; min-width: 300px; flex: 1; }
+  .scala-cont .barra-col { position: relative; flex: 1; height: 12px; border-radius: 3px; outline: 1px solid rgba(0,0,0,.08); }
+  .scala-cont .barra-col span { position: absolute; top: 14px; transform: translateX(-50%); font-size: .7rem; }
+  .motivo { display: inline-flex; align-items: center; gap: 5px; }
+  .motivo i { display: inline-block; width: 22px; height: 14px; border-radius: 3px; background-color: #1e90ff; }
+  .motivo.neve i { background-image: repeating-linear-gradient(-45deg, rgba(255,255,255,.75) 0 3px, transparent 3px 9px); }
+  .motivo.mista i { background-image: repeating-linear-gradient(-45deg, rgba(255,255,255,.75) 0 3px, transparent 3px 18px); }
+  .motivo.gelicidio i { background-image: repeating-linear-gradient(-45deg, rgba(255,255,255,.75) 0 2px, transparent 2px 12px), repeating-linear-gradient(45deg, rgba(255,255,255,.75) 0 2px, transparent 2px 12px); }
+  .motivo.grandine i { background-color: #ff3c00; background-image: radial-gradient(circle, rgba(255,255,255,.95) 1.6px, transparent 2px); background-size: 8px 8px; }
+  .legende { padding-top: 6px; }
 </style>
 </head>
 <body>
@@ -175,20 +197,64 @@
     <div class="allerte" id="allerte"></div>
   </section>
 
-  <section class="card">
+  <section class="card" id="sez-radar">
+    <div class="titolo-sez">
+      <h2>📡 Radar</h2>
+      <p>l'immagine del radar, dalle ultime 2 ore alla previsione delle prossime 6</p>
+      <span class="spinge"></span>
+      <div class="gruppo" role="group" aria-label="Zona">
+        <button data-zona1="lazio" aria-pressed="true">Lazio</button>
+        <button data-zona1="sabina" aria-pressed="false">Sabina</button>
+      </div>
+    </div>
+    <div class="riga-ora">
+      <div><strong id="r-ora">--</strong><span class="giorno" id="r-giorno"></span></div>
+      <span class="etichetta" id="r-etichetta">--</span>
+    </div>
+    <div class="palco-fisso" id="r-palco"><canvas id="r-tela" width="860" height="845" aria-label="Immagine del radar"></canvas></div>
+    <div class="barra">
+      <button id="r-indietro" aria-label="Indietro">◀</button>
+      <button id="r-gioca" class="gioca" aria-label="Avvia o ferma">▶</button>
+      <button id="r-avanti" aria-label="Avanti">▶|</button>
+      <div class="cursore-box">
+        <input type="range" id="r-cursore" min="0" max="0" step="0.01" value="0" aria-label="Ora">
+        <div class="tacche" id="r-tacche"></div>
+      </div>
+      <button id="r-copia" title="Copia l'immagine (poi incolla dove vuoi)">📋 Copia</button>
+      <button id="r-scarica" title="Salva l'immagine">⬇️ Salva</button>
+    </div>
+    <div class="legende">
+      <div class="scala-cont"><span>pioggia mm/h</span><div class="barra-col" data-scala></div></div>
+      <span class="motivo neve"><i></i>neve</span>
+      <span class="motivo mista"><i></i>mista</span>
+      <span class="motivo gelicidio"><i></i>gelicidio</span>
+      <span class="motivo grandine"><i></i>grandine</span>
+      
+    </div>
+  </section>
+
+  <section class="card" id="sez-mappa">
+    <div class="titolo-sez">
+      <h2>🗺️ Mappa interattiva</h2>
+      <p>avvicinati quanto vuoi: paesi, strade e rilievo diventano sempre più dettagliati. Tocca un punto per sapere se lì pioverà.</p>
+    </div>
     <div class="comandi-mappa">
       <div class="gruppo" role="group" aria-label="Vista">
         <button data-vista="sat" aria-pressed="true">🛰️ Satellite + radar</button>
         <button data-vista="radar" aria-pressed="false">📡 Solo radar</button>
       </div>
-      <div class="gruppo" role="group" aria-label="Zona">
-        <button data-zona="lazio" aria-pressed="true">Lazio</button>
-        <button data-zona="sabina" aria-pressed="false">Sabina</button>
-      </div>
       <button class="chip-strato" data-strato="nubi" aria-pressed="true">☁️ Nubi</button>
       <button class="chip-strato" data-strato="pioggia" aria-pressed="true">🌧️ Pioggia</button>
       <button class="chip-strato" data-strato="fulmini" aria-pressed="true">⚡ Fulmini</button>
       <span class="spinge"></span>
+      <label style="font-size:.85rem;color:var(--muto)">Fondo
+        <select id="fondo">
+          <option value="terreno">Terreno</option>
+          <option value="rilievo">Rilievo e sentieri</option>
+          <option value="foto">Foto dal satellite</option>
+          <option value="chiaro">Chiaro</option>
+        </select>
+      </label>
       <label style="font-size:.85rem;color:var(--muto)">Per esperti
         <select id="esperti">
           <option value="">— mappa con nubi (normale)</option>
@@ -200,33 +266,27 @@
       </label>
     </div>
     <div class="riga-ora">
-      <div><strong id="ora">--</strong><span class="giorno" id="giorno"></span></div>
-      <span class="etichetta" id="etichetta">--</span>
+      <div><strong id="m-ora">--</strong><span class="giorno" id="m-giorno"></span></div>
+      <span class="etichetta" id="m-etichetta">--</span>
     </div>
-    <div class="palco" id="palco">
-      <canvas id="mappa" width="860" height="845" aria-label="Mappa con nubi, pioggia e fulmini. Tocca un punto per la previsione di quel punto."></canvas>
-      <div class="zoom"><button id="zoom-piu" aria-label="Ingrandisci">+</button><button id="zoom-meno" aria-label="Rimpicciolisci">−</button><button id="zoom-reset" aria-label="Vista intera" style="font-size:13px">⤢</button></div>
-      <div class="suggerimento" id="suggerimento">Tocca un punto della mappa: ti dico se lì pioverà</div>
-      <div id="fumetto"><button class="chiudi" aria-label="Chiudi">×</button><div id="fumetto-testo"></div><canvas id="fumetto-grafico" width="580" height="140"></canvas></div>
-    </div>
+    <div id="carta" aria-label="Mappa interattiva con nubi, pioggia e fulmini"></div>
     <div class="barra">
-      <button id="indietro" aria-label="Indietro">◀</button>
-      <button id="gioca" aria-label="Avvia o ferma">▶</button>
-      <button id="avanti" aria-label="Avanti">▶|</button>
+      <button id="m-indietro" aria-label="Indietro">◀</button>
+      <button id="m-gioca" class="gioca" aria-label="Avvia o ferma">▶</button>
+      <button id="m-avanti" aria-label="Avanti">▶|</button>
       <div class="cursore-box">
-        <input type="range" id="cursore" min="0" max="0" step="0.01" value="0" aria-label="Ora">
-        <div class="tacche" id="tacche"></div>
+        <input type="range" id="m-cursore" min="0" max="0" step="0.01" value="0" aria-label="Ora">
+        <div class="tacche" id="m-tacche"></div>
       </div>
-      <button id="copia" title="Copia l'immagine (poi incolla dove vuoi)">📋 Copia</button>
-      <button id="scarica" title="Salva l'immagine">⬇️ Salva</button>
+      <button id="m-copia" title="Copia l'immagine (poi incolla dove vuoi)">📋 Copia</button>
+      <button id="m-scarica" title="Salva l'immagine">⬇️ Salva</button>
     </div>
     <div class="legende">
-      <div class="scala" id="scala-pioggia"></div>
-      <div class="scala" id="scala-neve" style="min-width:150px;flex:0 1 180px"></div>
-      <div class="scala" id="scala-mista" style="min-width:110px;flex:0 1 130px"></div>
-      <div class="scala" id="scala-gelicidio" style="min-width:100px;flex:0 1 120px"></div>
-      <div class="scala" id="scala-granuli" style="min-width:100px;flex:0 1 120px"></div>
-      <span class="lampo"><b style="background:#e8fbff;border:2px solid #0b7fa8"></b>grandine</span>
+      <div class="scala-cont"><span>pioggia mm/h</span><div class="barra-col" data-scala></div></div>
+      <span class="motivo neve"><i></i>neve</span>
+      <span class="motivo mista"><i></i>mista</span>
+      <span class="motivo gelicidio"><i></i>gelicidio</span>
+      <span class="motivo grandine"><i></i>grandine</span>
       <span class="lampo"><b style="background:#fff36b;border:1px solid #333"></b>fulmini 0-10 min</span>
       <span class="lampo"><b style="background:#ff9a1f"></b>10-30 min</span>
       <span class="lampo"><b style="background:#d93b2b"></b>più vecchi</span>
@@ -255,15 +315,15 @@
 </main>
 <footer>
   Satellite: contains modified EUMETSAT Meteosat (MTG) data 2026, EUMETView (CC BY 4.0). Radar: Dipartimento della Protezione Civile, piattaforma Radar-DPC (dati elaborati).
-  Modello: WRF su dati ECMWF IFS open data (CC BY 4.0). Rilievo: Terrain Tiles (SRTM/GMTED) · Confini: ISTAT, Natural Earth · Nomi: GeoNames.
+  Modello: WRF su dati ECMWF IFS open data (CC BY 4.0). Rilievo: Terrain Tiles (SRTM/GMTED) · Confini: ISTAT, Natural Earth · Nomi: GeoNames · Mappa interattiva: Leaflet, fondi di Esri, OpenTopoMap, CARTO e © OpenStreetMap.
   Non usare per decisioni di sicurezza: per le allerte fanno fede i bollettini ufficiali della Protezione Civile.
 </footer>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 <script>
 (function () {
   "use strict";
   const $ = (id) => document.getElementById(id);
-  const S = { radar: null, sat: null, pagella: null, griglia: null, zona: "lazio", vistaTipo: "sat", strati: { nubi: true, pioggia: true, fulmini: true },
-              esperto: "", passi: [], pos: 0, gioca: false, vista: { s: 1, x: 0, y: 0 }, versione: "" };
+  const S = { radar: null, sat: null, pagella: null, griglia: null, versione: "" };
   const MESI = ["gen", "feb", "mar", "apr", "mag", "giu", "lug", "ago", "set", "ott", "nov", "dic"];
   const GG = ["Dom", "Lun", "Mar", "Mer", "Gio", "Ven", "Sab"];
   const PUNTI = ["nord", "nord-est", "est", "sud-est", "sud", "sud-ovest", "ovest", "nord-ovest"];
@@ -287,181 +347,240 @@
     (elenco || []).forEach((f) => { const x = Math.abs(data(f.ora) - t); if (x < d) { d = x; best = f; } });
     return d <= tolleranza ? best : null;
   }
-  function costruisciPassi() {
-    const zr = S.radar.zone[S.zona], zs = S.sat && S.sat.zone[S.zona];
-    const t0 = data(S.radar.t0), base = S.zona + "/";
-    const passi = [];
-    if (S.esperto && zs) {
-      (zs.esperti[S.esperto] || []).forEach((f) => {
-        const t = data(f.ora), r = vicino(zr.radar, t, 3 * 60000);
-        passi.push({ t, sfondo: base + f.file, nubi: null, pioggia: r ? base + r.file : null, tipo: "oss" });
+  // immagini di una zona per l'istante t (m = minuti da adesso)
+  function sorgenti(zona, t, m, vistaTipo, esperto) {
+    const zr = S.radar.zone[zona], zs = S.sat && S.sat.zone[zona], base = zona + "/";
+    if (!zr) return null;
+    if (esperto && zs) {
+      const e = vicino(zs.esperti[esperto], t, 6 * 60000), r = vicino(zr.radar, t, 3 * 60000);
+      return { sfondo: e ? base + e.file : null, nubi: null, pioggia: r ? base + r.file : null };
+    }
+    const r = m <= 0 ? vicino(zr.radar, t, 2 * 60000) : vicino(zr.previsione, t, 2 * 60000);
+    let nubi = null, stimate = false;
+    if (zs && vistaTipo !== "radar") {
+      const ultimoSat = zs.nubi.length ? data(zs.nubi[zs.nubi.length - 1].ora) : null;
+      if (ultimoSat && t <= new Date(ultimoSat.getTime() + 5 * 60000)) { const n = vicino(zs.nubi, t, 6 * 60000); nubi = n ? base + n.file : null; }
+      else { const n = vicino(zs.nubiprev, t, 6 * 60000); nubi = n ? base + n.file : null; stimate = true; }
+    }
+    return { sfondo: null, nubi, pioggia: r ? base + r.file : null, stimate };
+  }
+  function costruisciPassi(zone, vistaTipo, esperto) {
+    const t0 = data(S.radar.t0), passi = [];
+    if (esperto && S.sat) {
+      (S.sat.zone.lazio.esperti[esperto] || []).forEach((f) => {
+        const t = data(f.ora), z = {};
+        zone.forEach((zn) => { z[zn] = sorgenti(zn, t, -1, vistaTipo, esperto); });
+        passi.push({ t, m: Math.round((t - t0) / 60000), z, tipo: "oss" });
       });
     } else {
-      const ultimoSat = zs && zs.nubi.length ? data(zs.nubi[zs.nubi.length - 1].ora) : null;
       for (let m = -120; m <= 360; m += 10) {
-        const t = new Date(t0.getTime() + m * 60000);
-        let r = m <= 0 ? vicino(zr.radar, t, 2 * 60000) : vicino(zr.previsione, t, 2 * 60000);
-        const pioggia = r ? base + r.file : null;
-        let nubi = null, nubiStimate = false;
-        if (zs) {
-          if (ultimoSat && t <= new Date(ultimoSat.getTime() + 5 * 60000)) { const n = vicino(zs.nubi, t, 6 * 60000); nubi = n ? base + n.file : null; }
-          else { const n = vicino(zs.nubiprev, t, 6 * 60000); nubi = n ? base + n.file : null; nubiStimate = true; }
-        }
-        if (!pioggia && !nubi && m < 0) continue;
-        if (S.vistaTipo === "radar") { if (!pioggia && m < 0) continue; nubi = null; }
-        passi.push({ t, m, sfondo: base + (S.vistaTipo === "radar" ? "mappa_grigia.jpg" : "mappa.jpg"), nubi, pioggia, tipo: m <= 0 ? "oss" : "prev", nubiStimate });
+        const t = new Date(t0.getTime() + m * 60000), z = {};
+        zone.forEach((zn) => { z[zn] = sorgenti(zn, t, m, vistaTipo, ""); });
+        const p0 = z[zone[0]];
+        if (m < 0 && !p0.pioggia && !p0.nubi) continue;
+        if (vistaTipo === "radar" && m < 0 && !p0.pioggia) continue;
+        passi.push({ t, m, z, tipo: m <= 0 ? "oss" : "prev", stimate: p0.stimate });
       }
     }
-    S.passi = passi;
-    passi.forEach((p) => { img(p.sfondo); img(p.nubi); img(p.pioggia); });
-    img(base + "confini.png"); img(base + "confini_bianchi.png");
-    const z = S.radar.zone[S.zona];
-    const c = $("mappa"); c.width = z.larghezza; c.height = z.altezza; $("palco").style.setProperty("--forma", z.larghezza / z.altezza);
-    $("cursore").max = Math.max(0, passi.length - 1);
-    let adesso = 0; passi.forEach((p, k) => { if (p.tipo === "oss") adesso = k; });
-    S.adesso = adesso;
-    tacche();
-    vai(adesso);
+    passi.forEach((p) => Object.values(p.z).forEach((s) => { if (s) { img(s.sfondo); img(s.nubi); img(s.pioggia); } }));
+    return passi;
   }
 
-  function tacche() {
-    const T = $("tacche"); T.innerHTML = ""; const n = S.passi.length; if (n < 2) return;
-    S.passi.forEach((p, k) => {
-      if (p.t.getUTCMinutes() === 0 && (S.esperto || p.m % 60 === 0)) {
-        const s = document.createElement("span"); s.style.left = (100 * k / (n - 1)) + "%"; s.textContent = ora(p.t).slice(0, 2); T.appendChild(s);
-      }
-    });
-    if (!S.esperto) { const l = document.createElement("div"); l.className = "adesso-linea"; l.style.left = (100 * S.adesso / (n - 1)) + "%"; T.appendChild(l); }
+  // ------------------------------------------------------------------ lettore (comandi del tempo), uno per sezione
+  function Lettore(pref, disegnaFn, etichettaFn) {
+    const L = { passi: [], pos: 0, gioca: false, adesso: 0, pausa: 0 };
+    const el = (n) => $(pref + "-" + n);
+    L.tacche = () => {
+      const T = el("tacche"); T.innerHTML = ""; const n = L.passi.length; if (n < 2) return;
+      L.passi.forEach((p, k) => {
+        if (p.t.getUTCMinutes() === 0 && (p.m % 60 === 0 || L.esperto)) {
+          const s = document.createElement("span"); s.style.left = (100 * k / (n - 1)) + "%"; s.textContent = ora(p.t).slice(0, 2); T.appendChild(s);
+        }
+      });
+      if (!L.esperto) { const l = document.createElement("div"); l.className = "adesso-linea"; l.style.left = (100 * L.adesso / (n - 1)) + "%"; T.appendChild(l); }
+    };
+    L.imposta = (passi, esperto) => {
+      L.passi = passi; L.esperto = !!esperto;
+      el("cursore").max = Math.max(0, passi.length - 1);
+      let a = 0; passi.forEach((p, k) => { if (p.tipo === "oss") a = k; }); L.adesso = a;
+      L.tacche(); L.vai(a);
+    };
+    L.ridisegna = () => {
+      disegnaFn(L);
+      const p = L.passi[Math.round(L.pos)]; if (!p) return;
+      el("ora").textContent = "ore " + ora(p.t);
+      const l = locale(p.t); el("giorno").textContent = GG[l.getDay()] + " " + l.getDate() + " " + MESI[l.getMonth()];
+      const e = el("etichetta");
+      if (p.tipo === "prev") {
+        const h = Math.floor(p.m / 60), mm = p.m % 60;
+        e.className = "etichetta prev"; e.textContent = "PREVISIONE +" + (h ? h + "h" : "") + (mm ? (h ? " " : "") + mm + "min" : "");
+      } else { e.className = "etichetta"; e.textContent = etichettaFn(p); }
+      el("cursore").value = L.pos;
+    };
+    L.vai = (pos) => { L.pos = Math.max(0, Math.min(L.passi.length - 1, pos)); L.ridisegna(); };
+    L.avvia = (si) => { const era = L.gioca; L.gioca = si; el("gioca").textContent = si ? "❚❚" : "▶"; if (era && !si && L.passi.length) L.vai(Math.round(L.pos)); };
+    L.passo = (dt) => {
+      if (!L.gioca || !L.passi.length) return;
+      if (L.pos >= L.passi.length - 1) { L.pausa += dt; if (L.pausa > 1500) { L.pausa = 0; L.pos = 0; } }
+      else L.pos = Math.min(L.passi.length - 1, L.pos + dt / 650);
+      L.ridisegna();
+    };
+    el("cursore").addEventListener("input", (e) => { L.avvia(false); L.vai(+e.target.value); });
+    el("indietro").onclick = () => { L.avvia(false); L.vai(Math.round(L.pos) - 1); };
+    el("avanti").onclick = () => { L.avvia(false); L.vai(Math.round(L.pos) + 1); };
+    el("gioca").onclick = () => L.avvia(!L.gioca);
+    return L;
   }
 
-  // ------------------------------------------------------------------ disegno
   function fulminiAttivi(t) {
     if (!S.sat || !S.sat.fulmini) return [];
     return S.sat.fulmini.map((f) => ({ f, eta: (t - data(f.ora)) / 60000 })).filter((x) => x.eta >= 0 && x.eta <= 60);
   }
-  function disegna(ctx, W, H, vista) {
-    const k = Math.floor(S.pos), f = S.pos - k;
-    const A = S.passi[k], B = S.passi[Math.min(k + 1, S.passi.length - 1)];
-    if (!A) return;
-    const z = S.radar.zone[S.zona], sc0 = W / z.larghezza;
-    ctx.save();
-    ctx.fillStyle = "#16314f"; ctx.fillRect(0, 0, W, H);
-    ctx.setTransform(vista.s * sc0, 0, 0, vista.s * sc0, vista.x * sc0, vista.y * sc0);
+  function fulmine(ctx, x, y, r, col, lw) {
+    ctx.beginPath(); ctx.moveTo(x - 0.3 * r, y - r); ctx.lineTo(x + 0.6 * r, y - r); ctx.lineTo(x + 0.1 * r, y - 0.1 * r);
+    ctx.lineTo(x + 0.6 * r, y - 0.1 * r); ctx.lineTo(x - 0.4 * r, y + r * 1.1); ctx.lineTo(x - 0.05 * r, y + 0.15 * r); ctx.lineTo(x - 0.55 * r, y + 0.15 * r); ctx.closePath();
+    ctx.fillStyle = col; ctx.fill(); ctx.lineWidth = lw; ctx.strokeStyle = "#222"; ctx.stroke();
+  }
+  // due istanti vicini sfumati l'uno nell'altro (animazione fluida)
+  function coppia(L) { const k = Math.floor(L.pos), f = L.pos - k; return [L.passi[k], L.passi[Math.min(k + 1, L.passi.length - 1)], f]; }
+
+  // ------------------------------------------------------------------ SEZIONE 1: immagine radar normale (fissa)
+  const R = { zona: "lazio" };
+  function disegnaRadar(ctx, W, H, L) {
+    const [A, B, f] = coppia(L); if (!A) return;
+    const z = S.radar.zone[R.zona], a = A.z[R.zona], b = B.z[R.zona];
+    ctx.save(); ctx.fillStyle = "#16314f"; ctx.fillRect(0, 0, W, H); ctx.scale(W / z.larghezza, H / z.altezza);
     const strato = (src, alfa) => { const im = img(src); if (pronta(im) && alfa > 0.001) { ctx.globalAlpha = alfa; ctx.drawImage(im, 0, 0, z.larghezza, z.altezza); } };
-    if (A.sfondo === B.sfondo || f === 0) strato(A.sfondo, 1); else { strato(A.sfondo, 1); strato(B.sfondo, f); }
-    if (S.strati.nubi && !S.esperto) { if (A.nubi === B.nubi) strato(A.nubi, 1); else { strato(A.nubi, 1 - f); strato(B.nubi, f); } }
-    if (S.strati.pioggia || S.vistaTipo === "radar") { if (A.pioggia === B.pioggia) strato(A.pioggia, 1); else { strato(A.pioggia, 1 - f); strato(B.pioggia, f); } }
-    // grandine stimata dal radar (ultimi 30 minuti rispetto all'ora mostrata)
-    if (S.radar.grandine && (S.strati.pioggia || S.vistaTipo === "radar")) {
-      const tg = new Date(A.t.getTime() + f * 10 * 60000), sc = 1 / vista.s;
-      S.radar.grandine.forEach((g) => {
-        const eta = (tg - data(g.ora)) / 60000; if (eta < 0 || eta > 30) return;
-        const x = (g.lon - z.riquadro[0]) / (z.riquadro[1] - z.riquadro[0]) * z.larghezza;
-        const y = (z.riquadro[3] - g.lat) / (z.riquadro[3] - z.riquadro[2]) * z.altezza;
-        const r = (g.poh >= 80 ? 9 : 7) * sc;
-        ctx.globalAlpha = 1 - eta / 45; ctx.beginPath(); ctx.arc(x, y, r, 0, 2 * Math.PI);
-        ctx.fillStyle = "#e8fbff"; ctx.fill(); ctx.lineWidth = (g.poh >= 80 ? 3 : 2) * sc; ctx.strokeStyle = g.poh >= 80 ? "#c8001e" : "#0b7fa8"; ctx.stroke();
-        ctx.beginPath(); ctx.arc(x, y, r * 0.35, 0, 2 * Math.PI); ctx.fillStyle = g.poh >= 80 ? "#c8001e" : "#0b7fa8"; ctx.fill();
-      });
-      ctx.globalAlpha = 1;
-    }
-    ctx.globalAlpha = 1;
-    strato(S.zona + (S.esperto ? "/confini_bianchi.png" : "/confini.png"), 1);
-    if (S.strati.fulmini) {
-      const t = new Date(A.t.getTime() + f * 10 * 60000);
-      const sc = 1 / vista.s;
-      fulminiAttivi(t).forEach(({ f: fl, eta }) => {
-        const x = (fl.lon - z.riquadro[0]) / (z.riquadro[1] - z.riquadro[0]) * z.larghezza;
-        const y = (z.riquadro[3] - fl.lat) / (z.riquadro[3] - z.riquadro[2]) * z.altezza;
-        if (x < -10 || y < -10 || x > z.larghezza + 10 || y > z.altezza + 10) return;
-        const col = eta <= 10 ? "#fff36b" : eta <= 30 ? "#ff9a1f" : "#d93b2b";
-        const r = (eta <= 10 ? 8 : 6) * sc;
-        ctx.globalAlpha = eta <= 30 ? 1 : Math.max(0.35, 1 - (eta - 30) / 40);
-        ctx.beginPath(); ctx.moveTo(x - 0.3 * r, y - r); ctx.lineTo(x + 0.6 * r, y - r); ctx.lineTo(x + 0.1 * r, y - 0.1 * r);
-        ctx.lineTo(x + 0.6 * r, y - 0.1 * r); ctx.lineTo(x - 0.4 * r, y + r * 1.1); ctx.lineTo(x - 0.05 * r, y + 0.15 * r); ctx.lineTo(x - 0.55 * r, y + 0.15 * r); ctx.closePath();
-        ctx.fillStyle = col; ctx.fill(); ctx.lineWidth = 1.2 * sc; ctx.strokeStyle = "#222"; ctx.stroke();
-      });
-      ctx.globalAlpha = 1;
-    }
+    strato(R.zona + "/mappa_grigia.jpg", 1);
+    if (a.pioggia === b.pioggia) strato(a.pioggia, 1); else { strato(a.pioggia, 1 - f); strato(b.pioggia, f); }
+    ctx.globalAlpha = 1; strato(R.zona + "/confini.png", 1);
+    const t = new Date(A.t.getTime() + f * 10 * 60000);
+    fulminiAttivi(t).forEach(({ f: fl, eta }) => {
+      const x = (fl.lon - z.riquadro[0]) / (z.riquadro[1] - z.riquadro[0]) * z.larghezza, y = (z.riquadro[3] - fl.lat) / (z.riquadro[3] - z.riquadro[2]) * z.altezza;
+      if (x < -10 || y < -10 || x > z.larghezza + 10 || y > z.altezza + 10) return;
+      ctx.globalAlpha = eta <= 30 ? 1 : Math.max(0.35, 1 - (eta - 30) / 40);
+      fulmine(ctx, x, y, eta <= 10 ? 8 : 6, eta <= 10 ? "#fff36b" : eta <= 30 ? "#ff9a1f" : "#d93b2b", 1.2);
+    });
     ctx.restore();
   }
-  function ridisegna() {
-    const c = $("mappa"); disegna(c.getContext("2d"), c.width, c.height, S.vista);
-    const k = Math.round(S.pos), p = S.passi[k]; if (!p) return;
-    $("ora").textContent = "ore " + ora(p.t);
-    const l = locale(p.t); $("giorno").textContent = GG[l.getDay()] + " " + l.getDate() + " " + MESI[l.getMonth()];
-    const e = $("etichetta");
-    if (p.tipo === "prev") {
-      const h = Math.floor(p.m / 60), mm = p.m % 60;
-      e.className = "etichetta prev"; e.textContent = "PREVISIONE +" + (h ? h + "h" : "") + (mm ? (h ? " " : "") + mm + "min" : "");
-    } else { e.className = "etichetta"; e.textContent = S.esperto ? "SATELLITE" : S.vistaTipo === "radar" ? "RADAR OSSERVATO" : (p.nubiStimate && S.strati.nubi ? "RADAR · nubi stimate" : "OSSERVATO"); }
-    $("cursore").value = S.pos;
+  const LR = Lettore("r", (L) => { const c = $("r-tela"); disegnaRadar(c.getContext("2d"), c.width, c.height, L); }, () => "RADAR OSSERVATO");
+  function preparaRadar() {
+    const z = S.radar.zone[R.zona], c = $("r-tela");
+    c.width = z.larghezza; c.height = z.altezza; $("r-palco").style.setProperty("--forma", z.larghezza / z.altezza);
+    img(R.zona + "/mappa_grigia.jpg"); img(R.zona + "/confini.png");
+    LR.imposta(costruisciPassi([R.zona], "radar", ""), "");
   }
-  function vai(pos) { S.pos = Math.max(0, Math.min(S.passi.length - 1, pos)); ridisegna(); }
 
-  // animazione fluida: tra un passo e l'altro le immagini sfumano una nell'altra
-  let ultimoTempo = 0, pausa = 0;
-  function ciclo(ts) {
-    if (S.gioca && S.passi.length) {
-      const dt = Math.min(100, ts - (ultimoTempo || ts));
-      if (S.pos >= S.passi.length - 1) { pausa += dt; if (pausa > 1500) { pausa = 0; S.pos = 0; } }
-      else S.pos = Math.min(S.passi.length - 1, S.pos + dt / 650);
-      ridisegna();
+  // ------------------------------------------------------------------ SEZIONE 2: mappa interattiva (Leaflet)
+  const M = { vistaTipo: "sat", strati: { nubi: true, pioggia: true, fulmini: true }, esperto: "", carta: null, tela: null, fondo: null };
+  const FONDI = {
+    terreno: [["https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
+               { maxZoom: 19, attribution: "Fondo © Esri, HERE, Garmin, FAO, NOAA, USGS, © OpenStreetMap" }]],
+    rilievo: [["https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",
+               { maxZoom: 17, attribution: "Fondo © OpenTopoMap (CC-BY-SA), dati © OpenStreetMap, SRTM" }]],
+    foto: [["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+            { maxZoom: 19, attribution: "Foto © Esri, Maxar, Earthstar Geographics" }],
+           ["https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",
+            { maxZoom: 19, pane: "etichette", attribution: "" }]],
+    chiaro: [["https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+              { maxZoom: 19, subdomains: "abcd", attribution: "© OpenStreetMap, © CARTO" }]]
+  };
+  function scegliFondo(nome) {
+    if (!M.carta) return;
+    if (M.fondo) M.fondo.forEach((l) => M.carta.removeLayer(l));
+    M.fondo = (FONDI[nome] || FONDI.terreno).map(([u, o]) => L_.tileLayer(u, o).addTo(M.carta));
+  }
+  const L_ = window.L;
+  function creaCarta() {
+    if (M.carta || !L_) return;
+    const z = S.radar.zone.lazio, q = z.riquadro;
+    M.carta = L_.map("carta", { zoomSnap: 0.25, minZoom: 7, maxZoom: 14, maxBounds: [[q[2] - 1.5, q[0] - 2], [q[3] + 1.5, q[1] + 2]],
+                                preferCanvas: true, scrollWheelZoom: false });
+    // la rotella ingrandisce la mappa solo dopo averci cliccato sopra (cosi' scorrendo la pagina non si resta "intrappolati")
+    M.carta.on("click focus", () => M.carta.scrollWheelZoom.enable());
+    M.carta.getContainer().addEventListener("mouseleave", () => M.carta.scrollWheelZoom.disable());
+    M.carta.createPane("etichette").style.zIndex = 450;
+    M.carta.getPane("etichette").style.pointerEvents = "none";
+    M.carta.fitBounds([[q[2], q[0]], [q[3], q[1]]]);
+    scegliFondo($("fondo").value);
+    // tela che copre la carta: radar, nubi e fulmini disegnati qui, riproiettati sulla carta a strisce
+    M.tela = L_.DomUtil.create("canvas", "leaflet-zoom-hide");
+    M.carta.getPanes().overlayPane.appendChild(M.tela);
+    const riposiziona = () => {
+      const s = M.carta.getSize(), dpr = window.devicePixelRatio || 1;
+      M.tela.width = Math.round(s.x * dpr); M.tela.height = Math.round(s.y * dpr);
+      M.tela.style.width = s.x + "px"; M.tela.style.height = s.y + "px";
+      L_.DomUtil.setPosition(M.tela, M.carta.containerPointToLayerPoint([0, 0]));
+      LM.ridisegna();
+    };
+    M.carta.on("move zoomend resize viewreset", riposiziona);
+    M.carta.on("click", (e) => chiedi(e.latlng));
+    M.riposiziona = riposiziona;
+    setTimeout(riposiziona, 0);
+  }
+  // disegna un'immagine della zona (righe = latitudine lineare) sulla carta (Mercatore) a 48 strisce: nessuna deformazione
+  function sullaCarta(ctx, im, q, alfa) {
+    if (!pronta(im) || alfa <= 0.001) return;
+    const W = im.naturalWidth, H = im.naturalHeight, N = 48, c = M.carta, dpr = window.devicePixelRatio || 1;
+    const px = (v) => Math.round(v * dpr) / dpr;      // bordi delle strisce esattamente sui pixel: niente righe visibili
+    const x0 = px(c.latLngToContainerPoint([q[3], q[0]]).x), x1 = px(c.latLngToContainerPoint([q[3], q[1]]).x);
+    ctx.globalAlpha = alfa;
+    let yA = px(c.latLngToContainerPoint([q[3], q[0]]).y);
+    for (let s = 0; s < N; s++) {
+      const latB = q[3] - (s + 1) / N * (q[3] - q[2]), yB = px(c.latLngToContainerPoint([latB, q[0]]).y);
+      if (yB > yA) ctx.drawImage(im, 0, s * H / N, W, H / N, x0, yA, x1 - x0, yB - yA);
+      yA = yB;
     }
-    ultimoTempo = ts; requestAnimationFrame(ciclo);
   }
-  function avvia(si) { const era = S.gioca; S.gioca = si; $("gioca").textContent = si ? "❚❚" : "▶"; if (era && !si && S.passi.length) vai(Math.round(S.pos)); }
-
-  // ------------------------------------------------------------------ zoom, trascinamento, tocco
-  const puntatori = new Map(); let mosso = false, inizio = null, distanza0 = 0, vista0 = null;
-  function limita() {
-    const z = S.radar.zone[S.zona], v = S.vista;
-    v.x = Math.min(0, Math.max(z.larghezza * (1 - v.s), v.x)); v.y = Math.min(0, Math.max(z.altezza * (1 - v.s), v.y));
-  }
-  function zoomA(fattore, cx, cy) {
-    const v = S.vista, s = Math.max(1, Math.min(8, v.s * fattore)), r = s / v.s;
-    v.x = cx - (cx - v.x) * r; v.y = cy - (cy - v.y) * r; v.s = s; limita(); ridisegna();
-  }
-  function inMappa(ev) {
-    const c = $("mappa"), r = c.getBoundingClientRect(), z = S.radar.zone[S.zona];
-    return [(ev.clientX - r.left) / r.width * z.larghezza, (ev.clientY - r.top) / r.height * z.altezza];
-  }
-  const tela = $("mappa");
-  tela.addEventListener("wheel", (ev) => { if (!S.radar) return; ev.preventDefault(); const [x, y] = inMappa(ev); zoomA(ev.deltaY < 0 ? 1.25 : 0.8, x, y); }, { passive: false });
-  tela.addEventListener("pointerdown", (ev) => {
-    if (!S.radar) return;
-    tela.setPointerCapture(ev.pointerId); puntatori.set(ev.pointerId, inMappa(ev)); mosso = false; inizio = inMappa(ev); vista0 = { ...S.vista };
-    if (puntatori.size === 2) { const [a, b] = [...puntatori.values()]; distanza0 = Math.hypot(a[0] - b[0], a[1] - b[1]); }
-    tela.classList.add("trascina");
-  });
-  tela.addEventListener("pointermove", (ev) => {
-    if (!puntatori.has(ev.pointerId)) return;
-    const p = inMappa(ev); puntatori.set(ev.pointerId, p);
-    if (puntatori.size === 1) {
-      if (Math.hypot(p[0] - inizio[0], p[1] - inizio[1]) > 4) mosso = true;
-      if (S.vista.s > 1) { S.vista.x = vista0.x + (p[0] - inizio[0]); S.vista.y = vista0.y + (p[1] - inizio[1]); limita(); ridisegna(); }
-    } else if (puntatori.size === 2) {
-      mosso = true; const [a, b] = [...puntatori.values()]; const d = Math.hypot(a[0] - b[0], a[1] - b[1]);
-      if (distanza0 > 0) { S.vista = { ...vista0 }; zoomA(d / distanza0, (a[0] + b[0]) / 2, (a[1] + b[1]) / 2); }
+  function disegnaCarta(L) {
+    if (!M.carta || !M.tela) return;
+    const ctx = M.tela.getContext("2d"), dpr = window.devicePixelRatio || 1;
+    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, M.tela.width, M.tela.height); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.imageSmoothingQuality = "high";
+    const [A, B, f] = coppia(L); if (!A) return;
+    const zoom = M.carta.getZoom(), zone = zoom >= 10 ? ["lazio", "sabina"] : ["lazio"];
+    zone.forEach((zn) => {
+      const a = A.z[zn], b = B.z[zn], q = S.radar.zone[zn] && S.radar.zone[zn].riquadro; if (!a || !q) return;
+      if (M.esperto) {
+        if (a.sfondo === b.sfondo || f === 0) sullaCarta(ctx, img(a.sfondo), q, 1); else { sullaCarta(ctx, img(a.sfondo), q, 1); sullaCarta(ctx, img(b.sfondo), q, f); }
+      }
+      if (M.strati.nubi && !M.esperto && M.vistaTipo !== "radar") {
+        if (a.nubi === b.nubi) sullaCarta(ctx, img(a.nubi), q, 1); else { sullaCarta(ctx, img(a.nubi), q, 1 - f); sullaCarta(ctx, img(b.nubi), q, f); }
+      }
+      if (M.strati.pioggia || M.vistaTipo === "radar") {
+        if (a.pioggia === b.pioggia) sullaCarta(ctx, img(a.pioggia), q, 1); else { sullaCarta(ctx, img(a.pioggia), q, 1 - f); sullaCarta(ctx, img(b.pioggia), q, f); }
+      }
+    });
+    ctx.globalAlpha = 1;
+    if (M.strati.fulmini) {
+      const t = new Date(A.t.getTime() + f * 10 * 60000);
+      fulminiAttivi(t).forEach(({ f: fl, eta }) => {
+        const p = M.carta.latLngToContainerPoint([fl.lat, fl.lon]);
+        ctx.globalAlpha = eta <= 30 ? 1 : Math.max(0.35, 1 - (eta - 30) / 40);
+        fulmine(ctx, p.x, p.y, eta <= 10 ? 9 : 7, eta <= 10 ? "#fff36b" : eta <= 30 ? "#ff9a1f" : "#d93b2b", 1.2);
+      });
     }
-  });
-  tela.addEventListener("pointerup", (ev) => {
-    if (puntatori.has(ev.pointerId) && puntatori.size === 1 && !mosso) chiedi(ev);
-    puntatori.delete(ev.pointerId); if (!puntatori.size) tela.classList.remove("trascina");
-    if (puntatori.size === 1) { inizio = [...puntatori.values()][0]; vista0 = { ...S.vista }; }
-  });
-  tela.addEventListener("pointercancel", (ev) => { puntatori.delete(ev.pointerId); tela.classList.remove("trascina"); });
-  tela.addEventListener("dblclick", (ev) => { const [x, y] = inMappa(ev); zoomA(2, x, y); });
-  $("zoom-piu").onclick = () => { const z = S.radar.zone[S.zona]; zoomA(1.5, z.larghezza / 2, z.altezza / 2); };
-  $("zoom-meno").onclick = () => { const z = S.radar.zone[S.zona]; zoomA(1 / 1.5, z.larghezza / 2, z.altezza / 2); };
-  $("zoom-reset").onclick = () => { S.vista = { s: 1, x: 0, y: 0 }; ridisegna(); };
+    // Nerola
+    const n = M.carta.latLngToContainerPoint(NEROLA); ctx.globalAlpha = 1;
+    ctx.beginPath(); for (let k = 0; k < 10; k++) { const r = k % 2 ? 3.2 : 7.5, a = -Math.PI / 2 + k * Math.PI / 5; ctx.lineTo(n.x + r * Math.cos(a), n.y + r * Math.sin(a)); }
+    ctx.closePath(); ctx.fillStyle = "#e0262b"; ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = "#fff"; ctx.stroke();
+    if (zoom < 11) { ctx.font = "700 13px system-ui, sans-serif"; ctx.lineWidth = 3; ctx.strokeStyle = "rgba(255,255,255,.9)"; ctx.strokeText("Nerola", n.x + 10, n.y + 4); ctx.fillStyle = "#111"; ctx.fillText("Nerola", n.x + 10, n.y + 4); }
+  }
+  const LM = Lettore("m", disegnaCarta, (p) => M.esperto ? "SATELLITE" : M.vistaTipo === "radar" ? "RADAR OSSERVATO" : (p.stimate && M.strati.nubi ? "RADAR · nubi stimate" : "OSSERVATO"));
+  // sopra le immagini del satellite (che coprono il fondo) servono confini e nomi: quelli del fondo, nitidi a ogni zoom
+  function etichetteEsperti() {
+    if (!M.carta) return;
+    const serve = !!M.esperto && $("fondo").value !== "foto";
+    if (serve && !M.etichette) M.etichette = L_.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",
+      { maxZoom: 19, pane: "etichette", attribution: "Nomi e confini © Esri" }).addTo(M.carta);
+    if (!serve && M.etichette) { M.carta.removeLayer(M.etichette); M.etichette = null; }
+  }
+  function preparaCarta() {
+    creaCarta(); etichetteEsperti();
+    LM.imposta(costruisciPassi(["lazio", "sabina"], M.vistaTipo, M.esperto), M.esperto);
+  }
 
   // ------------------------------------------------------------------ "tocca un punto": previsione per quel punto
-  function lonlatDaEvento(ev) {
-    const [mx, my] = inMappa(ev), z = S.radar.zone[S.zona], v = S.vista;
-    const x = (mx - v.x) / v.s, y = (my - v.y) / v.s;
-    return [z.riquadro[0] + x / z.larghezza * (z.riquadro[1] - z.riquadro[0]), z.riquadro[3] - y / z.altezza * (z.riquadro[3] - z.riquadro[2])];
-  }
   function serieIn(lon, lat) {
     const g = S.sat && S.sat.griglia; if (!g || !S.griglia) return null;
     const j = Math.floor((lon - g.lon0) / g.passo), i = Math.floor((g.lat1 - lat) / g.passo);
@@ -482,89 +601,95 @@
     return { testo: "Niente pioggia nelle prossime 6 ore", liv: "no" };
   }
   function colorePioggia(v) {
-    let k = -1; S.radar.soglie.forEach((s, i) => { if (v >= s) k = i; });
-    return S.radar.colori[Math.max(0, k)];
+    const sc = S.radar.scala; if (!sc) { let k = -1; S.radar.soglie.forEach((s, i) => { if (v >= s) k = i; }); return S.radar.colori[Math.max(0, k)]; }
+    let c = sc[0][1]; sc.forEach(([s, col]) => { if (v >= s) c = col; }); return c;
   }
   function graficoSerie(canvas, serie) {
     const x = canvas.getContext("2d"), W = canvas.width, H = canvas.height, n = serie.pioggia.length;
-    const scuro = matchMedia("(prefers-color-scheme: dark)").matches;
     x.clearRect(0, 0, W, H);
     const basso = H - 26, alto = 8, w = W / n;
     x.beginPath(); x.moveTo(0, basso);
     serie.nubi.forEach((v, k) => x.lineTo(k * w + w / 2, basso - v * (basso - alto)));
-    x.lineTo(W, basso); x.closePath(); x.fillStyle = scuro ? "rgba(180,195,210,.28)" : "rgba(120,135,150,.22)"; x.fill();
+    x.lineTo(W, basso); x.closePath(); x.fillStyle = "rgba(120,135,150,.22)"; x.fill();
     const max = Math.max(4, ...serie.pioggia);
-    serie.pioggia.forEach((v, k) => {
-      if (v < 0.1) return;
-      const h = Math.max(3, Math.sqrt(v / max) * (basso - alto));
-      x.fillStyle = colorePioggia(v); x.fillRect(k * w + 1, basso - h, w - 2, h);
-    });
-    x.fillStyle = scuro ? "#9aa7b4" : "#5d6b7a"; x.font = Math.round(H / 7) + "px system-ui"; x.textAlign = "center";
+    serie.pioggia.forEach((v, k) => { if (v < 0.1) return; const h = Math.max(3, Math.sqrt(v / max) * (basso - alto)); x.fillStyle = colorePioggia(v); x.fillRect(k * w + 1, basso - h, w - 2, h); });
+    x.fillStyle = "#5d6b7a"; x.font = Math.round(H / 7) + "px system-ui"; x.textAlign = "center";
     for (let k = 0; k < n; k += 6) x.fillText(k === 0 ? "ora" : "+" + (k / 6) + "h", Math.min(W - 24, Math.max(20, k * w + w / 2)), H - 4);
-    x.strokeStyle = scuro ? "#3a4756" : "#d0d7df"; x.lineWidth = 2; x.beginPath(); x.moveTo(0, basso + 1); x.lineTo(W, basso + 1); x.stroke();
+    x.strokeStyle = "#d0d7df"; x.lineWidth = 2; x.beginPath(); x.moveTo(0, basso + 1); x.lineTo(W, basso + 1); x.stroke();
   }
-  function chiedi(ev) {
-    const [lon, lat] = lonlatDaEvento(ev), serie = serieIn(lon, lat), F = $("fumetto");
+  function chiedi(ll) {
+    const lat = ll.lat, lon = ll.lng, serie = serieIn(lon, lat);
     if (!serie) return;
     const d = km(NEROLA[0], NEROLA[1], lat, lon), fr = frasePioggia(serie);
     const nubiOra = serie.nubi[0], cielo = nubiOra < 0.12 ? "sereno" : nubiOra < 0.35 ? "poco nuvoloso" : nubiOra < 0.65 ? "nuvoloso" : "coperto";
-    $("fumetto-testo").innerHTML = "<b>" + (d < 2 ? "Nerola" : "Punto a " + Math.round(d) + " km verso " + verso(NEROLA[0], NEROLA[1], lat, lon) + " da Nerola") + "</b><br>" +
-      "<span style='color:var(--" + (fr.liv === "no" ? "ok" : fr.liv === "dopo" ? "attento" : "allerta") + ");font-weight:600'>" + fr.testo + "</span><br>Cielo ora: " + cielo;
-    graficoSerie($("fumetto-grafico"), serie);
-    const r = $("palco").getBoundingClientRect();
-    F.style.display = "block";
-    let px = ev.clientX - r.left + 12, py = ev.clientY - r.top + 12;
-    if (px + F.offsetWidth > r.width - 8) px = Math.max(8, ev.clientX - r.left - F.offsetWidth - 12);
-    if (py + F.offsetHeight > r.height - 8) py = Math.max(8, ev.clientY - r.top - F.offsetHeight - 12);
-    F.style.left = px + "px"; F.style.top = py + "px";
-    $("suggerimento").style.display = "none";
+    const colore = fr.liv === "no" ? "#1d8a4a" : fr.liv === "dopo" ? "#c27c00" : "#c8331f";
+    const html = "<b>" + (d < 2 ? "Nerola" : "Punto a " + Math.round(d) + " km verso " + verso(NEROLA[0], NEROLA[1], lat, lon) + " da Nerola") + "</b><br>" +
+      "<span style='color:" + colore + ";font-weight:600'>" + fr.testo + "</span><br>Cielo ora: " + cielo + '<canvas width="580" height="140"></canvas>';
+    const pop = L_.popup({ maxWidth: 320 }).setLatLng(ll).setContent(html).openOn(M.carta);
+    const cv = pop.getElement() && pop.getElement().querySelector("canvas"); if (cv) graficoSerie(cv, serie);
   }
-  document.querySelector("#fumetto .chiudi").onclick = () => { $("fumetto").style.display = "none"; };
 
   // ------------------------------------------------------------------ immagine completa (copia / salva)
-  function immagineCompleta() {
-    const z = S.radar.zone[S.zona], W = z.larghezza, H = z.altezza, ALTO = 58, LEG = S.strati.pioggia ? 34 : 0, CRED = 24;
+  // un'immagine unica e completa (mappa, radar, nubi, confini, titolo, legenda): quella della zona intera
+  function immagineCompleta(L, zona, conNubi, vistaTipo, esperto) {
+    const z = S.radar.zone[zona], W = z.larghezza, H = z.altezza, ALTO = 58, LEG = 34, CRED = 24;
     const cv = document.createElement("canvas"); cv.width = W; cv.height = ALTO + H + LEG + CRED;
     const x = cv.getContext("2d");
     x.fillStyle = "#fff"; x.fillRect(0, 0, cv.width, cv.height);
-    x.save(); x.translate(0, ALTO); disegna(x, W, H, S.vista); x.restore();
-    const p = S.passi[Math.round(S.pos)], l = locale(p.t);
+    const [A, B, f] = coppia(L), a = A.z[zona], b = B.z[zona];
+    x.save(); x.translate(0, ALTO);
+    const strato = (src, alfa) => { const im = img(src); if (pronta(im) && alfa > 0.001) { x.globalAlpha = alfa; x.drawImage(im, 0, 0, W, H); } };
+    if (esperto) strato(a.sfondo, 1); else strato(zona + (vistaTipo === "radar" ? "/mappa_grigia.jpg" : "/mappa.jpg"), 1);
+    if (conNubi && !esperto && vistaTipo !== "radar") { strato(a.nubi, 1 - f); strato(b.nubi, f); }
+    strato(a.pioggia, a.pioggia === b.pioggia ? 1 : 1 - f); if (a.pioggia !== b.pioggia) strato(b.pioggia, f);
+    x.globalAlpha = 1; strato(zona + (esperto ? "/confini_bianchi.png" : "/confini.png"), 1);
+    x.restore();
+    const p = L.passi[Math.round(L.pos)], l = locale(p.t);
     const nomi = { visibile: "Satellite visibile HD", colori: "Satellite colori reali", infrarosso: "Satellite infrarosso", topnubi: "Top nubi" };
-    const prefisso = S.vistaTipo === "radar" ? "Radar" : "Satellite e radar";
-    const tit = S.esperto ? nomi[S.esperto] : (p.tipo === "prev" ? (S.vistaTipo === "radar" ? "Radar previsto +" : "Previsione +") + (p.m >= 60 ? Math.floor(p.m / 60) + "h " : "") + (p.m % 60 ? (p.m % 60) + "min" : "") : prefisso);
+    const prefisso = vistaTipo === "radar" ? "Radar" : "Satellite e radar";
+    const tit = esperto ? nomi[esperto] : (p.tipo === "prev" ? (vistaTipo === "radar" ? "Radar previsto +" : "Previsione +") + (p.m >= 60 ? Math.floor(p.m / 60) + "h " : "") + (p.m % 60 ? (p.m % 60) + "min" : "") : prefisso);
     x.fillStyle = "#111"; x.textBaseline = "middle"; x.textAlign = "left"; x.font = "600 21px system-ui, sans-serif";
     x.fillText(tit + " · " + z.nome, 12, ALTO / 2 - 9);
     x.font = "14px system-ui, sans-serif"; x.fillStyle = "#555";
-    x.fillText(p.tipo === "prev" ? "nubi e pioggia previste (radar, satellite e modello WRF Nerola)" : "Meteosat MTG · radar Protezione Civile", 12, ALTO / 2 + 13);
+    x.fillText(p.tipo === "prev" ? "previsione (radar, satellite e modello WRF Nerola)" : "Meteosat MTG · radar Protezione Civile", 12, ALTO / 2 + 13);
     x.textAlign = "right"; x.fillStyle = "#111"; x.font = "15px system-ui, sans-serif";
     x.fillText(GG[l.getDay()] + " " + l.getDate() + " " + MESI[l.getMonth()] + " " + l.getFullYear(), W - 12, ALTO / 2 - 9);
     const hh = (n) => String(n).padStart(2, "0");
     x.fillText(hh(p.t.getUTCHours()) + ":" + hh(p.t.getUTCMinutes()) + " UTC / " + ora(p.t) + " ora italiana", W - 12, ALTO / 2 + 12);
     let y = ALTO + H;
-    if (LEG) {
-      const n = S.radar.colori.length, x0 = 52, w = (W - x0 - 12) / n;
-      x.textAlign = "left"; x.fillStyle = "#333"; x.font = "12px system-ui, sans-serif"; x.fillText("mm/h", 12, y + 12);
-      S.radar.colori.forEach((col, k) => { x.fillStyle = col; x.fillRect(x0 + k * w, y + 5, w - 2, 12); x.fillStyle = "#333"; x.fillText(String(S.radar.soglie[k]), x0 + k * w, y + 26); });
-      y += LEG;
+    const sc = S.radar.scala || [], x0 = 52, w = W - x0 - 12, lmin = Math.log(0.2), lmax = Math.log(100);
+    x.textAlign = "left"; x.fillStyle = "#333"; x.font = "12px system-ui, sans-serif"; x.fillText("mm/h", 12, y + 12);
+    if (sc.length) {
+      const g = x.createLinearGradient(x0, 0, x0 + w, 0);
+      sc.forEach(([v, col]) => g.addColorStop(Math.min(1, Math.max(0, (Math.log(v) - lmin) / (lmax - lmin))), col));
+      x.fillStyle = g; x.fillRect(x0, y + 5, w, 12);
+      x.fillStyle = "#333"; x.textAlign = "center";
+      [0.2, 0.5, 1, 2, 5, 10, 20, 50, 100].forEach((v) => x.fillText(String(v).replace(".", ","), x0 + (Math.log(v) - lmin) / (lmax - lmin) * w, y + 27));
     }
+    y += LEG;
     x.fillStyle = "#f2f4f7"; x.fillRect(0, y, W, CRED);
     x.textAlign = "left"; x.fillStyle = "#1d4e89"; x.font = "700 13px system-ui, sans-serif"; x.fillText("www.meteonerola.it", 12, y + CRED / 2);
     x.textAlign = "right"; x.fillStyle = "#555"; x.font = "11px system-ui, sans-serif";
     x.fillText("Satellite: EUMETSAT (dati modificati) · Radar: Protezione Civile · Modello: WRF Nerola", W - 12, y + CRED / 2);
     return cv;
   }
-  $("copia").onclick = async () => {
-    avvia(false);
-    try { const cv = immagineCompleta(); const blob = await new Promise((ok) => cv.toBlob(ok, "image/png"));
-      await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]); $("copia").textContent = "✅ Copiata"; }
-    catch (e) { $("copia").textContent = "Usa ⬇️ Salva"; }
-    setTimeout(() => { $("copia").textContent = "📋 Copia"; }, 2500);
-  };
-  $("scarica").onclick = () => {
-    avvia(false); const cv = immagineCompleta(), p = S.passi[Math.round(S.pos)];
-    const a = document.createElement("a"); a.href = cv.toDataURL("image/jpeg", 0.92);
-    a.download = "meteonerola_" + S.zona + "_" + p.t.toISOString().slice(0, 16).replace(/[-:T]/g, "") + ".jpg"; document.body.appendChild(a); a.click(); a.remove();
-  };
+  function pulsantiImmagine(pref, L, quale) {
+    $(pref + "-copia").onclick = async () => {
+      L.avvia(false);
+      try { const cv = quale(); const blob = await new Promise((ok) => cv.toBlob(ok, "image/png"));
+        await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]); $(pref + "-copia").textContent = "✅ Copiata"; }
+      catch (e) { $(pref + "-copia").textContent = "Usa ⬇️ Salva"; }
+      setTimeout(() => { $(pref + "-copia").textContent = "📋 Copia"; }, 2500);
+    };
+    $(pref + "-scarica").onclick = () => {
+      L.avvia(false); const cv = quale(), p = L.passi[Math.round(L.pos)];
+      const a = document.createElement("a"); a.href = cv.toDataURL("image/jpeg", 0.92);
+      a.download = "meteonerola_" + p.t.toISOString().slice(0, 16).replace(/[-:T]/g, "") + ".jpg"; document.body.appendChild(a); a.click(); a.remove();
+    };
+  }
+  pulsantiImmagine("r", LR, () => immagineCompleta(LR, R.zona, false, "radar", ""));
+  // dalla mappa interattiva: l'immagine completa della zona che si sta guardando (Sabina se si e' vicini a Nerola)
+  pulsantiImmagine("m", LM, () => immagineCompleta(LM, M.carta && M.carta.getZoom() >= 10 ? "sabina" : "lazio", M.strati.nubi, M.vistaTipo, M.esperto));
 
   // ------------------------------------------------------------------ riquadri
   // ---- icone (SVG semplici, disegnate qui)
@@ -681,16 +806,12 @@
     $("allerte").innerHTML = al;
   }
   function riempiScala() {
-    const scala = (id, nome, colori, soglie) => {
-      const L = $(id); if (!colori) { L.style.display = "none"; return; }
-      L.innerHTML = '<span style="margin-right:6px;align-self:center">' + nome + '</span>';
-      colori.forEach((c, k) => { const d = document.createElement("div"); d.innerHTML = '<i style="background:' + c + ';outline:1px solid rgba(0,0,0,.08)"></i>' + soglie[k]; L.appendChild(d); });
-    };
-    scala("scala-pioggia", "pioggia mm/h", S.radar.colori, S.radar.soglie);
-    scala("scala-neve", "neve", S.radar.colori_neve, S.radar.soglie_neve);
-    scala("scala-mista", "mista", S.radar.colori_mista, S.radar.soglie_mista);
-    scala("scala-gelicidio", "gelicidio", S.radar.colori_gelicidio, S.radar.soglie_gelicidio);
-    scala("scala-granuli", "granuli", S.radar.colori_granuli, S.radar.soglie_granuli);
+    const sc = S.radar.scala; if (!sc) return;
+    const lmin = Math.log(0.2), lmax = Math.log(100), pos = (v) => Math.min(100, Math.max(0, 100 * (Math.log(v) - lmin) / (lmax - lmin)));
+    document.querySelectorAll("[data-scala]").forEach((b) => {
+      b.style.background = "linear-gradient(90deg," + sc.map(([v, c]) => c + " " + pos(v).toFixed(1) + "%").join(",") + ")";
+      b.innerHTML = [0.2, 0.5, 1, 2, 5, 10, 20, 50, 100].map((v) => '<span style="left:' + pos(v) + '%">' + String(v).replace(".", ",") + "</span>").join("");
+    });
   }
   function situazione() {
     const info = S.radar.info, m = info.movimento || {}, w = info.wrf || {}, pn = (S.sat && S.sat.previsione_nubi) || {};
@@ -734,42 +855,37 @@
       try { const r = await fetch("griglia.bin?t=" + Date.now(), { cache: "no-store" }); if (r.ok) S.griglia = new Uint8Array(await r.arrayBuffer()); } catch (e) { S.griglia = null; }
       $("errore").style.display = "none";
       riempiScala(); riempiAdesso(); situazione(); pagella();
-      const eraIn = S.gioca; costruisciPassi(); if (eraIn) avvia(true);
+      const g1 = LR.gioca, g2 = LM.gioca; preparaRadar(); preparaCarta(); if (g1) LR.avvia(true); if (g2) LM.avvia(true);
     } catch (e) {
       $("errore").style.display = "block"; $("errore").textContent = "Dati non disponibili al momento (" + e.message + "). Riprovo tra poco.";
     }
   }
-  document.querySelectorAll("[data-zona]").forEach((b) => b.addEventListener("click", () => {
-    document.querySelectorAll("[data-zona]").forEach((x) => x.setAttribute("aria-pressed", x === b));
-    S.zona = b.dataset.zona; S.vista = { s: 1, x: 0, y: 0 }; $("fumetto").style.display = "none"; costruisciPassi();
+  document.querySelectorAll("[data-zona1]").forEach((b) => b.addEventListener("click", () => {
+    document.querySelectorAll("[data-zona1]").forEach((x) => x.setAttribute("aria-pressed", x === b));
+    R.zona = b.dataset.zona1; const g = LR.gioca; preparaRadar(); if (g) LR.avvia(true);
   }));
   document.querySelectorAll("[data-vista]").forEach((b) => b.addEventListener("click", () => {
     document.querySelectorAll("[data-vista]").forEach((x) => x.setAttribute("aria-pressed", x === b));
-    S.vistaTipo = b.dataset.vista;
-    if (S.vistaTipo === "radar") { S.esperto = ""; $("esperti").value = ""; $("info-esperti").style.display = "none"; }
-    $("esperti").disabled = S.vistaTipo === "radar";
-    document.querySelector("[data-strato=nubi]").disabled = S.vistaTipo === "radar";
-    document.querySelector("[data-strato=pioggia]").disabled = S.vistaTipo === "radar";
-    costruisciPassi();
+    M.vistaTipo = b.dataset.vista;
+    if (M.vistaTipo === "radar") { M.esperto = ""; $("esperti").value = ""; $("info-esperti").style.display = "none"; }
+    $("esperti").disabled = M.vistaTipo === "radar";
+    document.querySelector("[data-strato=nubi]").disabled = M.vistaTipo === "radar";
+    document.querySelector("[data-strato=pioggia]").disabled = M.vistaTipo === "radar";
+    preparaCarta();
   }));
   document.querySelectorAll("[data-strato]").forEach((b) => b.addEventListener("click", () => {
-    const k = b.dataset.strato; S.strati[k] = !S.strati[k]; b.setAttribute("aria-pressed", S.strati[k]); ridisegna();
+    const k = b.dataset.strato; M.strati[k] = !M.strati[k]; b.setAttribute("aria-pressed", M.strati[k]); LM.ridisegna();
   }));
   $("esperti").addEventListener("change", (e) => {
-    S.esperto = e.target.value; $("info-esperti").style.display = S.esperto ? "block" : "none"; $("info-esperti").textContent = INFO_ESPERTI[S.esperto] || "";
-    document.querySelector("[data-strato=nubi]").disabled = !!S.esperto; costruisciPassi();
+    M.esperto = e.target.value; $("info-esperti").style.display = M.esperto ? "block" : "none"; $("info-esperti").textContent = INFO_ESPERTI[M.esperto] || "";
+    document.querySelector("[data-strato=nubi]").disabled = !!M.esperto; preparaCarta();
   });
-  $("cursore").addEventListener("input", (e) => { const v = +e.target.value; avvia(false); vai(v); });
-  $("indietro").onclick = () => { avvia(false); vai(Math.round(S.pos) - 1); };
-  $("avanti").onclick = () => { avvia(false); vai(Math.round(S.pos) + 1); };
-  $("gioca").onclick = () => avvia(!S.gioca);
-  document.addEventListener("keydown", (e) => {
-    if (e.target.tagName === "SELECT") return;
-    if (e.key === "ArrowLeft") { avvia(false); vai(Math.round(S.pos) - 1); }
-    else if (e.key === "ArrowRight") { avvia(false); vai(Math.round(S.pos) + 1); }
-    else if (e.key === " ") { e.preventDefault(); avvia(!S.gioca); }
-  });
-  setInterval(() => { if (!S.gioca && S.passi.length) ridisegna(); }, 700);
+  $("fondo").addEventListener("change", (e) => { scegliFondo(e.target.value); etichetteEsperti(); });
+  // una sola animazione per tutta la pagina: ogni sezione ha il suo tempo
+  let ultimoTempo = 0;
+  function ciclo(ts) { const dt = Math.min(100, ts - (ultimoTempo || ts)); LR.passo(dt); LM.passo(dt); ultimoTempo = ts; requestAnimationFrame(ciclo); }
+  // le immagini arrivano un po' alla volta: si ridisegna finche' non sono tutte pronte
+  setInterval(() => { if (S.radar) { if (!LR.gioca && LR.passi.length) LR.ridisegna(); if (!LM.gioca && LM.passi.length) LM.ridisegna(); } }, 700);
   requestAnimationFrame(ciclo);
   carica(true);
   setInterval(() => carica(false), 5 * 60 * 1000);
