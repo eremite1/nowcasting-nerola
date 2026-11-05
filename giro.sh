@@ -40,6 +40,12 @@ python "$QUI/gara_giro.py" --dati "$DATI" --nowcast "$DATI/nowcast.pkl" --preced
   for f in gara.json gara_storico.json; do [ -f "$PUB/$f" ] && cp "$PUB/$f" "$NUOVO/" || true; done
 }
 
+# radar 3D: la pioggia a 10 quote (CAPPI) sopra il rilievo; se non riesce resta quello del giro prima
+python "$QUI/radar3d.py" --sfondo "${SFONDO:-}" --out "$NUOVO" >> "$REG" 2>&1 || {
+  echo "ATTENZIONE: radar 3D non aggiornato" >> "$REG"
+  [ -d "$PUB/radar3d" ] && cp -r "$PUB/radar3d" "$NUOVO/" || true
+}
+
 # radar come pluviometri virtuali (e WRF negli stessi punti) per le pagelle dei modelli contro il radar
 python "$QUI/radar_punti.py" --precedente "$PUB" --out "$NUOVO" --wrf "${WRF_FILE:-}" >> "$REG" 2>&1 \
   || echo "ATTENZIONE: radar nei punti non aggiornato" >> "$REG"
@@ -49,6 +55,7 @@ python "$QUI/stazione.py" --out "$NUOVO" >> "$REG" 2>&1 || true
 python "$QUI/notifiche.py" --nuovo "$NUOVO" --precedente "$PUB" >> "$REG" 2>&1 || echo "ATTENZIONE: notifiche non riuscite" >> "$REG"
 
 cp "$QUI/pagina/index.html" "$NUOVO/index.html"
+cp "$QUI/pagina/radar3d.js" "$NUOVO/radar3d.js"
 cp "$DATI/diagnosi.json" "$NUOVO/" 2>/dev/null || true
 touch "$NUOVO/.nojekyll"
 cat > "$NUOVO/LEGGIMI.md" <<'EOT'

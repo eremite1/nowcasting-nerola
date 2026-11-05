@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Satellite e radar Nerola</title>
+<script type="importmap">{"imports": {"three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
 <meta name="description" content="Satellite ad alta definizione, radar e previsione della pioggia e delle nubi per le prossime 6 ore su Nerola, Sabina e Lazio.">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
 <style>
@@ -217,6 +218,7 @@
 
   <div class="schede" role="tablist" aria-label="Scegli la mappa">
     <button role="tab" data-scheda="sez-radar" aria-selected="true">📡 Mappa base<small>il radar, semplice e chiaro</small></button>
+    <button role="tab" data-scheda="sez-3d" aria-selected="false">🧊 Radar 3D<small>i temporali in volume, da girare col dito</small></button>
     <button role="tab" data-scheda="sez-mappa" aria-selected="false" hidden>🗺️ Mappa per esperti<small>zoom, nubi, fulmini, satellite e fondi diversi</small></button>
   </div>
 
@@ -279,6 +281,32 @@
     <div class="legende" id="r-leg-acc" hidden>
       <div class="scala-cont"><span>pioggia caduta mm</span><div class="barra-col" data-scala-acc></div></div>
     </div>
+  </section>
+
+  <section class="card" id="sez-3d" hidden>
+    <div class="testa">
+      <h2>🧊 Radar 3D</h2>
+      <span class="sotto">la pioggia vista dal radar a 10 quote, da 1 a 10 km, sopra il rilievo vero</span>
+    </div>
+    <div class="riga-ora">
+      <div><strong id="t3-ora">--</strong><span class="giorno" id="t3-giorno"></span></div>
+      <span class="etichetta" id="t3-etichetta">RADAR 3D</span>
+    </div>
+    <div id="v3d" style="position:relative;width:100%;height:min(72vh,720px);border-radius:12px;overflow:hidden;background:#cfd8e3;touch-action:none">
+      <div id="v3d-msg" style="position:absolute;inset:0;display:grid;place-items:center;color:#334;font-size:.95rem">caricamento del radar 3D...</div>
+    </div>
+    <div class="prodotti" style="margin-top:10px">
+      <label style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">Mostra da
+        <input type="range" id="t3-soglia" min="10" max="55" step="5" value="20" style="width:160px">
+        <b id="t3-soglia-v">20 dBZ</b><span id="t3-soglia-mm"></span></label>
+      <label style="display:flex;align-items:center;gap:8px">Altezze esagerate
+        <input type="range" id="t3-esag" min="1" max="6" step="1" value="3" style="width:110px"><b id="t3-esag-v">3 volte</b></label>
+      <button id="t3-centro">🎯 Rimetti la vista</button>
+    </div>
+    <div class="legende">
+      <div class="scala-cont"><span>pioggia mm/h</span><div class="barra-col" data-scala></div></div>
+    </div>
+    <div class="nota">Trascina per girare, due dita (o rotella) per avvicinarti, tasto destro o tre dita per spostarti. Ogni "mattoncino" è un cubetto di aria di circa 1,4 km di lato e 1 km di altezza dove il radar vede pioggia: più il colore è caldo, più è intensa. I temporali forti salgono molto in alto (sopra i 6-7 km): con il cursore "Mostra da" togli la pioggia debole e vedi solo i nuclei. Sotto i 1000 metri il radar non ha la quota più bassa, e dietro le montagne può vedere meno.</div>
   </section>
 
   <section class="card" id="sez-mappa" hidden>
@@ -1054,6 +1082,8 @@
     });
     if (id === "sez-mappa") { LR.avvia(false); if (M.carta) { M.carta.invalidateSize(); if (!M.vista) { const q = S.radar.zone.lazio.riquadro; M.carta.fitBounds([[q[2], q[0]], [q[3], q[1]]]); M.vista = true; } M.riposiziona(); } }
     else LM.avvia(false);
+    if (id === "sez-3d") { LR.avvia(false); if (window.mnRadar3D) window.mnRadar3D.mostra(); else import("./radar3d.js?v=" + ((S.radar && S.radar.t0) || "")).catch((e) => { $("v3d-msg").textContent = "Il radar 3D non si è caricato: " + e.message; }); }
+    else if (window.mnRadar3D) window.mnRadar3D.pausa();
     try { localStorage.setItem("mn_scheda", id); } catch (e) { /* niente */ }
   }
   document.querySelectorAll("[data-scheda]").forEach((b) => b.addEventListener("click", () => mostraScheda(b.dataset.scheda)));
