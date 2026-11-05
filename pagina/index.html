@@ -306,9 +306,12 @@
       <button id="t3-centro">🎯 Rimetti la vista</button>
     </div>
     <div class="legende">
-      <div class="scala-cont"><span>pioggia mm/h</span><div class="barra-col" data-scala></div></div>
+      <div class="scala-cont"><span>eco radar dBZ</span><div class="barra-col" id="t3-scala"></div></div>
     </div>
-    <div class="nota">Trascina per girare, due dita (o rotella) per avvicinarti, tasto destro o tre dita per spostarti. Ogni "mattoncino" è un cubetto di aria di circa 1,4 km di lato e 1 km di altezza dove il radar vede pioggia: più il colore è caldo, più è intensa. I temporali forti salgono molto in alto (sopra i 6-7 km): con il cursore "Mostra da" togli la pioggia debole e vedi solo i nuclei. Sotto i 1000 metri il radar non ha la quota più bassa, e dietro le montagne può vedere meno.</div>
+    <div class="nota">Trascina per girare, due dita (o rotella) per avvicinarti, tasto destro o tre dita per spostarti. Avvicinandoti, la mappa e il rilievo diventano più dettagliati. Ogni "mattoncino" è un cubetto di aria di circa 1,4 km di lato e 1 km di altezza dove il radar riceve un'eco: è misurata davvero a ogni quota, ma in alto non è pioggia bensì neve, ghiaccio o grandine sospesi nella nube (vedi la spiegazione qui sotto). Più il colore è caldo, più l'eco è forte. I temporali forti salgono molto in alto (sopra i 6-7 km): con il cursore "Mostra da" togli la pioggia debole e vedi solo i nuclei. Sotto i 1000 metri il radar non ha la quota più bassa, e dietro le montagne può vedere meno.</div>
+    <details class="nota"><summary><b>Sono precipitazioni vere a tutte le quote?</b></summary>
+      Sì e no. Il radar <b>misura davvero</b> a ogni quota: manda un impulso e ascolta quanto ne torna indietro dalle particelle nella nube (gocce, fiocchi, chicchi di ghiaccio o grandine). Questa "eco" si misura in dBZ ed è quella che vedi a tutte le quote. Però <b>non è tutta pioggia</b>: sopra lo zero termico (in questa stagione 2-3 km) sono neve, ghiaccio e graupel (neve tonda) che restano sospesi o cadono e fondono scendendo; solo vicino al suolo diventano la pioggia che arriva a terra. I nuclei rossi e viola in alto (oltre 45-50 dBZ sopra i 5-6 km) indicano quasi sempre grandine dentro il temporale. Le quote sono ricostruite dalla Protezione Civile combinando le scansioni dei radar a diverse inclinazioni: lontano dai radar il fascio passa più in alto e le quote basse possono mancare.
+    </details>
   </section>
 
   <section class="card" id="sez-mappa" hidden>

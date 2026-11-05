@@ -33,6 +33,13 @@ jobs:
               pg.locator("#sez-3d").screenshot(path="radar3d.png")
               pg.fill("#t3-soglia", "40"); pg.dispatch_event("#t3-soglia", "input"); pg.wait_for_timeout(3000)
               pg.locator("#v3d").screenshot(path="radar3d_forte.png")
+              pg.fill("#t3-soglia", "15"); pg.dispatch_event("#t3-soglia", "input")
+              bb = pg.locator("#v3d").bounding_box()
+              pg.mouse.move(bb["x"] + bb["width"] / 2, bb["y"] + bb["height"] / 2)
+              for _ in range(12):
+                  pg.mouse.wheel(0, -400); pg.wait_for_timeout(250)
+              pg.wait_for_timeout(8000)
+              pg.locator("#v3d").screenshot(path="radar3d_zoom.png")
               open("console.txt", "w").write("\n".join(log))
               b.close()
           PY

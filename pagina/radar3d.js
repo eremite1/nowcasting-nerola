@@ -19,7 +19,11 @@ function colore(dbz) { const r = mmh(dbz); let k = 0; while (k + 1 < SOGLIE.leng
 
 let info = null, vol = null, terr = null, attivo = true;
 let esag = 3, soglia = 20;
-let scena, cam, rend, ctr, gruppoPioggia = null, terreno = null, etichette = [];
+let scena, cam, rend, ctr, gruppoPioggia = null, etichette = [];
+// il suolo e' diviso in tessere: ognuna ha una versione leggera (sempre pronta) e una dettagliata, che si scarica e si
+// mostra solo quando ti avvicini (zoom dinamico: piu' vicino = mappa e rilievo piu' fini)
+let tessere = [], texGrossa = null;
+const VICINO = 95;          // distanza (km sullo schermo 3D) sotto la quale una tessera passa al dettaglio
 
 async function scarica() {
   const i = await (await fetch("radar3d/info.json?c=" + Date.now())).json();
@@ -45,18 +49,86 @@ function quotaIn(x, z) {
   return terr[r * g.C + c] / 1000;
 }
 
+// mappa leggera con sopra i confini (mappa.jpg + confini.png fusi in un'unica immagine)
+function caricaImg(src) { return new Promise((ok, no) => { const im = new Image(); im.onload = () => ok(im); im.onerror = no; im.src = src; }); }
+async function preparaTexGrossa() {
+  const v = "?v=" + info.ora_ms;
+  const [m, c] = await Promise.all([caricaImg(info.mappa + v), caricaImg((info.confini || "lazio/confini.png") + v).catch(() => null)]);
+  const cv = document.createElement("canvas"); cv.width = m.naturalWidth * 2; cv.height = m.naturalHeight * 2;
+  const x = cv.getContext("2d"); x.drawImage(m, 0, 0, cv.width, cv.height); if (c) x.drawImage(c, 0, 0, cv.width, cv.height);
+  texGrossa = new THREE.CanvasTexture(cv); texGrossa.colorSpace = THREE.SRGBColorSpace; texGrossa.anisotropy = 4;
+}
+
+// geometria di una griglia di quote: vertici da (x0,z0) a (x1,z1), quote in metri riga per riga
+function griglia(nr, nc, quote, x0, z0, x1, z1, uv) {
+  const n = nr * nc, pos = new Float32Array(n * 3), uvs = new Float32Array(n * 2), idx = [];
+  for (let r = 0; r < nr; r++) for (let c = 0; c < nc; c++) {
+    const i = r * nc + c;
+    pos[3 * i] = x0 + (x1 - x0) * c / (nc - 1); pos[3 * i + 1] = quote(r, c) / 1000 * esag; pos[3 * i + 2] = z0 + (z1 - z0) * r / (nr - 1);
+    const [u, w] = uv(r, c); uvs[2 * i] = u; uvs[2 * i + 1] = w;
+  }
+  for (let r = 0; r < nr - 1; r++) for (let c = 0; c < nc - 1; c++) {
+    const a = r * nc + c, b = a + 1, d = a + nc, e = d + 1; idx.push(a, d, b, b, d, e);
+  }
+  const geom = new THREE.BufferGeometry();
+  geom.setAttribute("position", new THREE.BufferAttribute(pos, 3)); geom.setAttribute("uv", new THREE.BufferAttribute(uvs, 2));
+  geom.setIndex(idx); geom.computeVertexNormals(); return geom;
+}
+
 function costruisciTerreno() {
-  const g = geo();
-  if (terreno) { scena.remove(terreno); terreno.geometry.dispose(); }
-  const geom = new THREE.PlaneGeometry(g.W, g.H, g.C - 1, g.R - 1);
-  geom.rotateX(-Math.PI / 2);
-  const pos = geom.attributes.position;
-  for (let i = 0; i < pos.count; i++) pos.setY(i, terr[i] / 1000 * esag);
-  geom.computeVertexNormals();
-  const tex = new THREE.TextureLoader().load(info.mappa + "?v=" + info.ora_ms, () => disegna());
-  tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
-  terreno = new THREE.Mesh(geom, new THREE.MeshLambertMaterial({ map: tex }));
-  scena.add(terreno);
+  const g = geo(), NT = (info.dettaglio && info.dettaglio.tessere) || 4;
+  tessere.forEach((t) => { scena.remove(t.grossa); t.grossa.geometry.dispose(); if (t.fine) { scena.remove(t.fine); t.fine.geometry.dispose(); } });
+  const vecchie = tessere; tessere = [];
+  const mat = new THREE.MeshLambertMaterial({ map: texGrossa });
+  for (let i = 0; i < NT; i++) for (let j = 0; j < NT; j++) {
+    const r0 = Math.round(i * (g.R - 1) / NT), r1 = Math.round((i + 1) * (g.R - 1) / NT);
+    const c0 = Math.round(j * (g.C - 1) / NT), c1 = Math.round((j + 1) * (g.C - 1) / NT);
+    const X = (c) => -g.W / 2 + (c + 0.5) * g.dx, Z = (r) => -g.H / 2 + (r + 0.5) * g.dz;
+    const geom = griglia(r1 - r0 + 1, c1 - c0 + 1, (r, c) => terr[(r0 + r) * g.C + c0 + c], X(c0), Z(r0), X(c1), Z(r1),
+      (r, c) => [(c0 + c + 0.5) / g.C, 1 - (r0 + r + 0.5) / g.R]);
+    const grossa = new THREE.Mesh(geom, mat); scena.add(grossa);
+    const old = vecchie.find((t) => t.i === i && t.j === j);
+    const t = { i, j, grossa, fine: null, dati: old ? old.dati : null, carica: false,
+      centro: new THREE.Vector3((X(c0) + X(c1)) / 2, 0, (Z(r0) + Z(r1)) / 2), bordi: [-g.W / 2 + j * g.W / NT, -g.H / 2 + i * g.H / NT, -g.W / 2 + (j + 1) * g.W / NT, -g.H / 2 + (i + 1) * g.H / NT] };
+    if (t.dati) costruisciFine(t);
+    tessere.push(t);
+  }
+  livelloDettaglio();
+}
+
+function costruisciFine(t) {
+  const d = t.dati, [x0, z0, x1, z1] = t.bordi;
+  if (t.fine) { scena.remove(t.fine); t.fine.geometry.dispose(); }
+  const geom = griglia(d.righe, d.colonne, (r, c) => d.quote[r * d.colonne + c], x0, z0, x1, z1, (r, c) => [c / (d.colonne - 1), 1 - r / (d.righe - 1)]);
+  t.fine = new THREE.Mesh(geom, new THREE.MeshLambertMaterial({ map: d.tex })); t.fine.visible = false; scena.add(t.fine);
+}
+
+async function caricaFine(t) {
+  const det = info.dettaglio; if (!det || t.carica) return;
+  t.carica = true;
+  const e = det.elenco.find((x) => x.i === t.i && x.j === t.j); if (!e) return;
+  try {
+    const base = "radar3d/dettaglio/t" + t.i + "_" + t.j, v = "?d=" + det.versione;
+    const [b, tex] = await Promise.all([fetch(base + ".bin" + v).then((r) => { if (!r.ok) throw new Error(); return r.arrayBuffer(); }),
+      new THREE.TextureLoader().loadAsync(base + ".jpg" + v)]);
+    tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
+    t.dati = { righe: e.righe, colonne: e.colonne, quote: new Uint16Array(b), tex };
+    costruisciFine(t); livelloDettaglio(); disegna();
+  } catch (err) { /* la tessera dettagliata non c'e': resta quella leggera */ }
+}
+
+// per ogni tessera: dettagliata se la telecamera e' vicina, leggera altrimenti
+function livelloDettaglio() {
+  if (!cam) return;
+  const p = new THREE.Vector3();
+  tessere.forEach((t) => {
+    p.copy(t.centro); p.y = 0;
+    const vicina = cam.position.distanceTo(p) < VICINO * Math.max(1, esag / 3) + 20;
+    if (vicina && !t.dati) caricaFine(t);
+    const fine = vicina && !!t.fine;
+    if (t.fine) t.fine.visible = fine;
+    t.grossa.visible = !fine;
+  });
 }
 
 function costruisciPioggia() {
@@ -137,14 +209,15 @@ async function avvia() {
   box.appendChild(rend.domElement); msg.remove();
   ctr = new OrbitControls(cam, rend.domElement);
   ctr.enableDamping = true; ctr.dampingFactor = 0.08; ctr.maxPolarAngle = Math.PI / 2.05; ctr.minDistance = 8; ctr.maxDistance = 600;
-  ctr.addEventListener("change", disegna);
+  ctr.addEventListener("change", () => { livelloDettaglio(); disegna(); });
+  await preparaTexGrossa();
   costruisciTerreno(); costruisciPioggia(); costruisciEtichette(); vistaIniziale();
   new ResizeObserver(dimensiona).observe(box); dimensiona();
   rend.setAnimationLoop(() => { if (attivo && ctr.update()) disegna(); });
   // aggiornamento: ogni 5 minuti controlla se c'e' un radar nuovo
   setInterval(async () => {
     if (!attivo || document.hidden) return;
-    try { if (await scarica()) { costruisciTerreno(); costruisciPioggia(); costruisciEtichette(); disegna(); } } catch (e) { /* riprova dopo */ }
+    try { if (await scarica()) { costruisciPioggia(); disegna(); } } catch (e) { /* riprova dopo */ }
   }, 300000);
 }
 
@@ -158,6 +231,14 @@ $("t3-esag").addEventListener("input", (e) => {
   if (info) { costruisciTerreno(); costruisciPioggia(); costruisciEtichette(); disegna(); }
 });
 $("t3-centro").addEventListener("click", () => { if (info) vistaIniziale(); });
+// legenda: stessi colori della mappa base, ma in dBZ (intensita' dell'eco, l'unita' del radar)
+(function () {
+  const b = $("t3-scala"); if (!b) return;
+  const n = SOGLIE.length, pos = (k) => (100 * k / n).toFixed(2);
+  const dbz = (r) => Math.round(10 * Math.log10(200 * Math.pow(r, 1.6)));
+  b.style.background = "linear-gradient(90deg," + COLORI.map((c, k) => c + " " + pos(k) + "% " + pos(k + 1) + "%").join(",") + ")";
+  b.innerHTML = SOGLIE.map((r, k) => k % 2 === 0 ? '<span style="left:' + pos(k) + '%">' + dbz(r) + "</span>" : "").join("");
+})();
 $("t3-soglia").dispatchEvent(new Event("input"));
 
 window.mnRadar3D = { mostra() { attivo = true; if (rend) dimensiona(); }, pausa() { attivo = false; } };

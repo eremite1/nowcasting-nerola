@@ -41,7 +41,7 @@ python "$QUI/gara_giro.py" --dati "$DATI" --nowcast "$DATI/nowcast.pkl" --preced
 }
 
 # radar 3D: la pioggia a 10 quote (CAPPI) sopra il rilievo; se non riesce resta quello del giro prima
-python "$QUI/radar3d.py" --sfondo "${SFONDO:-}" --out "$NUOVO" >> "$REG" 2>&1 || {
+python "$QUI/radar3d.py" --sfondo "${SFONDO:-}" --precedente "$PUB" --out "$NUOVO" >> "$REG" 2>&1 || {
   echo "ATTENZIONE: radar 3D non aggiornato" >> "$REG"
   [ -d "$PUB/radar3d" ] && cp -r "$PUB/radar3d" "$NUOVO/" || true
 }
