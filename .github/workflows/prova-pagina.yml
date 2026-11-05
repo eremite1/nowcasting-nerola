@@ -4,7 +4,7 @@ name: Prova della pagina
 on:
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
 jobs:
   prova:
     runs-on: ubuntu-latest
@@ -37,9 +37,9 @@ jobs:
               b.close()
           PY
           cat console.txt
-      - uses: actions/upload-artifact@v4
-        with:
-          name: schermate
-          path: |
-            *.png
-            console.txt
+      - name: Salvo le schermate nel ramo prove-pagina
+        run: |
+          mkdir out && cp *.png console.txt out/ && cd out
+          git init -q && git checkout -q -b prove-pagina && git add -A
+          git -c user.name="prova" -c user.email="prova@localhost" commit -qm "schermate"
+          git push -qf "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" prove-pagina
