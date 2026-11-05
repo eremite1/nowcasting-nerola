@@ -136,6 +136,18 @@
   th { color: var(--muto); font-weight: 600; font-size: .76rem; }
   td.meglio { color: var(--ok); font-weight: 700; }
   .nota { color: var(--muto); font-size: .78rem; margin-top: 8px; }
+  .prodotti { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 4px 0 10px; font-size: .85rem; color: var(--muto); }
+  .barra[hidden], .legende[hidden] { display: none; }
+  .gara { margin-top: 14px; }
+  .gara h2 { font-size: 1.05rem; margin: 0 0 4px; }
+  .gara .scroll { overflow-x: auto; }
+  .gara table { min-width: 640px; }
+  .gara td.voto { font-variant-numeric: tabular-nums; }
+  .gara td.voto.primo { background: var(--evid); color: var(--accento); font-weight: 800; }
+  .gara td.nome small { display: block; color: var(--muto); font-size: .72rem; font-weight: 400; line-height: 1.25; }
+  .gara tr.pubblicata td.nome { font-weight: 700; }
+  .gara tr.pubblicata td.nome::before { content: "▶ "; color: var(--prev); }
+  .gara .vince { margin: 6px 0 10px; font-size: .9rem; }
   footer { max-width: 1280px; margin: 0 auto; padding: 0 16px 24px; color: var(--muto); font-size: .74rem; }
   #errore { display: none; padding: 12px; border-radius: 10px; background: var(--prev-sfondo); color: var(--prev); }
   /* ---- sezioni radar e mappa interattiva */
@@ -218,12 +230,19 @@
         <button data-zona1="sabina" aria-pressed="false">Sabina</button>
       </div>
     </div>
+    <div class="prodotti">
+      <div class="gruppo" role="group" aria-label="Cosa vedere">
+        <button data-prod="" aria-pressed="true">🌧️ Pioggia adesso e prevista</button>
+      </div>
+      <span>Pioggia caduta nelle ultime</span>
+      <div class="gruppo" role="group" aria-label="Pioggia caduta" id="r-accumuli"></div>
+    </div>
     <div class="riga-ora">
       <div><strong id="r-ora">--</strong><span class="giorno" id="r-giorno"></span></div>
       <span class="etichetta" id="r-etichetta">--</span>
     </div>
     <div class="palco-fisso" id="r-palco"><canvas id="r-tela" width="860" height="845" aria-label="Immagine del radar"></canvas></div>
-    <div class="barra">
+    <div class="barra" id="r-barra">
       <button id="r-indietro" aria-label="Indietro">◀</button>
       <button id="r-gioca" class="gioca" aria-label="Avvia o ferma">▶</button>
       <button id="r-avanti" aria-label="Avanti">▶|</button>
@@ -231,14 +250,18 @@
         <input type="range" id="r-cursore" min="0" max="0" step="0.01" value="0" aria-label="Ora">
         <div class="tacche" id="r-tacche"></div>
       </div>
+    </div>
+    <div class="barra" style="justify-content:flex-end">
       <button id="r-copia" title="Copia l'immagine (poi incolla dove vuoi)">📋 Copia</button>
       <button id="r-scarica" title="Salva l'immagine">⬇️ Salva</button>
     </div>
-    <div class="legende">
+    <div class="legende" id="r-leg-int">
       <div class="scala-cont"><span>pioggia mm/h</span><div class="barra-col" data-scala></div></div>
       <span class="motivo neve"><i></i>neve</span>
       <span class="motivo grandine"><i></i>grandine</span>
-      
+    </div>
+    <div class="legende" id="r-leg-acc" hidden>
+      <div class="scala-cont"><span>pioggia caduta mm</span><div class="barra-col" data-scala-acc></div></div>
     </div>
   </section>
 
@@ -318,6 +341,27 @@
         nubi e pioggia viene misurato e proseguito; con il passare del tempo il peso passa al modello WRF di Nerola, corretto ogni volta
         confrontandolo con quello che si vede adesso. Previsione sperimentale.</div>
     </div>
+  </section>
+
+  <section class="card gara" id="gara">
+    <h2>🏁 Gara dei metodi di previsione</h2>
+    <div class="nota" style="margin-top:0">Ogni 10 minuti le prossime 6 ore vengono previste in tanti modi diversi. Quando arriva l'ora prevista,
+      ogni previsione viene sovrapposta all'immagine vera del radar (o del satellite) e riceve un voto da 0 a 100%: quanto le zone di pioggia
+      (almeno 1 mm/h) o di nubi coincidono, guardando quadrati di 10 km. Vince chi ci azzecca di più; quando ci sono abbastanza confronti,
+      la previsione pubblicata diventa da sola quella del metodo vincente.</div>
+    <div class="prodotti" style="margin-top:10px">
+      <div class="gruppo" role="group" aria-label="Cosa confrontare">
+        <button data-gara="pioggia" aria-pressed="true">🌧️ Pioggia (radar)</button>
+        <button data-gara="nubi" aria-pressed="false">☁️ Nubi (satellite)</button>
+      </div>
+      <div class="gruppo" role="group" aria-label="Periodo">
+        <button data-gara-p="7" aria-pressed="true">7 giorni</button>
+        <button data-gara-p="14" aria-pressed="false">14 giorni</button>
+      </div>
+    </div>
+    <div class="vince" id="gara-vince"></div>
+    <div class="scroll"><table id="gara-tab"><tr><td>caricamento...</td></tr></table></div>
+    <div class="nota" id="gara-nota"></div>
   </section>
 </main>
 <footer>
@@ -413,7 +457,7 @@
       L.tacche(); L.vai(a);
     };
     L.ridisegna = () => {
-      disegnaFn(L);
+      if (disegnaFn(L) === true) return;      // la sezione ha gia' scritto da se' ora ed etichetta
       const p = L.passi[Math.round(L.pos)]; if (!p) return;
       el("ora").textContent = "ore " + ora(p.t);
       const l = locale(p.t); el("giorno").textContent = GG[l.getDay()] + " " + l.getDate() + " " + MESI[l.getMonth()];
@@ -452,13 +496,16 @@
   function coppia(L) { const k = Math.floor(L.pos), f = L.pos - k; return [L.passi[k], L.passi[Math.min(k + 1, L.passi.length - 1)], f]; }
 
   // ------------------------------------------------------------------ SEZIONE 1: immagine radar normale (fissa)
-  const R = { zona: "lazio" };
+  const R = { zona: "lazio", acc: "" };
+  const prodAcc = () => R.acc && S.radar.accumuli ? (S.radar.accumuli.prodotti || []).find((p) => p.tipo === R.acc) : null;
   function disegnaRadar(ctx, W, H, L) {
     const [A, B, f] = coppia(L); if (!A) return;
     const z = S.radar.zone[R.zona], a = A.z[R.zona], b = B.z[R.zona];
-    ctx.save(); ctx.fillStyle = "#16314f"; ctx.fillRect(0, 0, W, H); ctx.scale(W / z.larghezza, H / z.altezza);
+    ctx.save(); ctx.fillStyle = "#666b72"; ctx.fillRect(0, 0, W, H); ctx.scale(W / z.larghezza, H / z.altezza);
     const strato = (src, alfa) => { const im = img(src); if (pronta(im) && alfa > 0.001) { ctx.globalAlpha = alfa; ctx.drawImage(im, 0, 0, z.larghezza, z.altezza); } };
     strato(R.zona + "/mappa_grigia.jpg", 1);
+    const pa = prodAcc();
+    if (pa) { strato(R.zona + "/" + pa.file[R.zona], 1); ctx.globalAlpha = 1; strato(R.zona + "/confini.png", 1); ctx.restore(); return; }
     if (a.pioggia === b.pioggia) strato(a.pioggia, 1); else { strato(a.pioggia, 1 - f); strato(b.pioggia, f); }
     ctx.globalAlpha = 1; strato(R.zona + "/confini.png", 1);
     const t = new Date(A.t.getTime() + f * 10 * 60000);
@@ -470,7 +517,33 @@
     });
     ctx.restore();
   }
-  const LR = Lettore("r", (L) => { const c = $("r-tela"); disegnaRadar(c.getContext("2d"), c.width, c.height, L); }, () => "RADAR OSSERVATO");
+  const LR = Lettore("r", (L) => {
+    const c = $("r-tela"); disegnaRadar(c.getContext("2d"), c.width, c.height, L);
+    const pa = prodAcc();
+    if (pa) {   // pioggia caduta: immagine fissa, al posto dell'ora l'intervallo misurato
+      const fine = data(pa.ora), ini = new Date(fine.getTime() - pa.ore * 3600000), l = locale(fine);
+      $("r-ora").textContent = "dalle " + ora(ini) + " alle " + ora(fine);
+      $("r-giorno").textContent = GG[l.getDay()] + " " + l.getDate() + " " + MESI[l.getMonth()];
+      const m = pa.massimo && pa.massimo[R.zona];
+      $("r-etichetta").className = "etichetta"; $("r-etichetta").textContent = "CADUTA IN " + pa.ore + (pa.ore === 1 ? " ORA" : " ORE") + (m ? " · MAX " + String(m).replace(".", ",") + " mm" : "");
+    }
+    return !!pa;
+  }, () => "RADAR OSSERVATO");
+  function scegliProdotto(tipo) {
+    R.acc = tipo || "";
+    document.querySelectorAll("[data-prod]").forEach((x) => x.setAttribute("aria-pressed", x.dataset.prod === R.acc));
+    $("r-barra").hidden = !!R.acc; $("r-leg-int").hidden = !!R.acc; $("r-leg-acc").hidden = !R.acc;
+    if (R.acc) LR.avvia(false);
+    const pa = prodAcc(); if (pa) img(R.zona + "/" + pa.file[R.zona]);
+    LR.ridisegna();
+  }
+  function pulsantiAccumuli() {
+    const box = $("r-accumuli"), pr = (S.radar.accumuli && S.radar.accumuli.prodotti) || [];
+    box.innerHTML = pr.map((p) => '<button data-prod="' + p.tipo + '" aria-pressed="' + (p.tipo === R.acc) + '">' + p.ore + (p.ore === 1 ? " ora" : " ore") + "</button>").join("") ||
+      '<button disabled>non disponibile</button>';
+    box.parentElement.querySelectorAll("[data-prod]").forEach((b) => { b.onclick = () => scegliProdotto(b.dataset.prod); });
+    if (R.acc && !prodAcc()) scegliProdotto("");
+  }
   function preparaRadar() {
     const z = S.radar.zone[R.zona], c = $("r-tela");
     c.width = z.larghezza; c.height = z.altezza; $("r-palco").style.setProperty("--forma", z.larghezza / z.altezza);
@@ -638,7 +711,7 @@
 
   // ------------------------------------------------------------------ immagine completa (copia / salva)
   // un'immagine unica e completa (mappa, radar, nubi, confini, titolo, legenda): quella della zona intera
-  function immagineCompleta(L, zona, conNubi, vistaTipo, esperto) {
+  function immagineCompleta(L, zona, conNubi, vistaTipo, esperto, acc) {
     const z = S.radar.zone[zona], W = z.larghezza, H = z.altezza, ALTO = 58, LEG = 34, CRED = 24;
     const cv = document.createElement("canvas"); cv.width = W; cv.height = ALTO + H + LEG + CRED;
     const x = cv.getContext("2d");
@@ -648,36 +721,37 @@
     const strato = (src, alfa) => { const im = img(src); if (pronta(im) && alfa > 0.001) { x.globalAlpha = alfa; x.drawImage(im, 0, 0, W, H); } };
     if (esperto) strato(a.sfondo, 1); else strato(zona + (vistaTipo === "radar" ? "/mappa_grigia.jpg" : "/mappa.jpg"), 1);
     if (conNubi && !esperto && vistaTipo !== "radar") { strato(a.nubi, 1 - f); strato(b.nubi, f); }
-    strato(a.pioggia, a.pioggia === b.pioggia ? 1 : 1 - f); if (a.pioggia !== b.pioggia) strato(b.pioggia, f);
+    if (acc) strato(zona + "/" + acc.file[zona], 1);
+    else { strato(a.pioggia, a.pioggia === b.pioggia ? 1 : 1 - f); if (a.pioggia !== b.pioggia) strato(b.pioggia, f); }
     x.globalAlpha = 1; strato(zona + (esperto ? "/confini_bianchi.png" : "/confini.png"), 1);
     x.restore();
-    const p = L.passi[Math.round(L.pos)], l = locale(p.t);
+    const p0 = L.passi[Math.round(L.pos)], p = acc ? { t: data(acc.ora), m: 0, tipo: "oss" } : p0, l = locale(p.t);
     const nomi = { visibile: "Satellite visibile HD", colori: "Satellite colori reali", infrarosso: "Satellite infrarosso", topnubi: "Top nubi" };
     const prefisso = vistaTipo === "radar" ? "Radar" : "Satellite e radar";
     const tit = esperto ? nomi[esperto] : (p.tipo === "prev" ? (vistaTipo === "radar" ? "Radar previsto +" : "Previsione +") + (p.m >= 60 ? Math.floor(p.m / 60) + "h " : "") + (p.m % 60 ? (p.m % 60) + "min" : "") : prefisso);
     x.fillStyle = "#111"; x.textBaseline = "middle"; x.textAlign = "left"; x.font = "600 21px system-ui, sans-serif";
-    x.fillText(tit + " · " + z.nome, 12, ALTO / 2 - 9);
+    x.fillText((acc ? "Pioggia caduta in " + acc.ore + (acc.ore === 1 ? " ora" : " ore") : tit) + " · " + z.nome, 12, ALTO / 2 - 9);
     x.font = "14px system-ui, sans-serif"; x.fillStyle = "#555";
-    x.fillText(p.tipo === "prev" ? "previsione (radar, satellite e modello WRF Nerola)" : "Meteosat MTG · radar Protezione Civile", 12, ALTO / 2 + 13);
+    x.fillText(acc ? "stima del radar della Protezione Civile, fino all'ora indicata" : p.tipo === "prev" ? "previsione (radar, satellite e modello WRF Nerola)" : "Meteosat MTG · radar Protezione Civile", 12, ALTO / 2 + 13);
     x.textAlign = "right"; x.fillStyle = "#111"; x.font = "15px system-ui, sans-serif";
     x.fillText(GG[l.getDay()] + " " + l.getDate() + " " + MESI[l.getMonth()] + " " + l.getFullYear(), W - 12, ALTO / 2 - 9);
     const hh = (n) => String(n).padStart(2, "0");
     x.fillText(hh(p.t.getUTCHours()) + ":" + hh(p.t.getUTCMinutes()) + " UTC / " + ora(p.t) + " ora italiana", W - 12, ALTO / 2 + 12);
     let y = ALTO + H;
-    const sc = S.radar.scala || [], x0 = 52, w = W - x0 - 12, lmin = Math.log(0.2), lmax = Math.log(100);
-    x.textAlign = "left"; x.fillStyle = "#333"; x.font = "12px system-ui, sans-serif"; x.fillText("mm/h", 12, y + 12);
+    const sc = (acc ? S.radar.accumuli.scala : S.radar.scala) || [], x0 = 52, w = W - x0 - 12;
+    const etich = acc ? [0.2, 2, 6, 15, 30, 60, 100, 200] : [0.1, 0.5, 1.2, 2.5, 5, 10, 20, 40, 90, 200];
+    x.textAlign = "left"; x.fillStyle = "#333"; x.font = "12px system-ui, sans-serif"; x.fillText(acc ? "mm" : "mm/h", 12, y + 12);
     if (sc.length) {
-      const g = x.createLinearGradient(x0, 0, x0 + w, 0);
-      sc.forEach(([v, col]) => g.addColorStop(Math.min(1, Math.max(0, (Math.log(v) - lmin) / (lmax - lmin))), col));
-      x.fillStyle = g; x.fillRect(x0, y + 5, w, 12);
+      const lw = w / sc.length;
+      sc.forEach(([v, col], k) => { x.fillStyle = col; x.fillRect(x0 + k * lw, y + 5, Math.ceil(lw), 12); });
       x.fillStyle = "#333"; x.textAlign = "center";
-      [0.2, 0.5, 1, 2, 5, 10, 20, 50, 100].forEach((v) => x.fillText(String(v).replace(".", ","), x0 + (Math.log(v) - lmin) / (lmax - lmin) * w, y + 27));
+      sc.forEach(([v], k) => { if (etich.includes(v)) x.fillText(String(v).replace(".", ","), x0 + k * lw, y + 27); });
     }
     y += LEG;
     x.fillStyle = "#f2f4f7"; x.fillRect(0, y, W, CRED);
     x.textAlign = "left"; x.fillStyle = "#1d4e89"; x.font = "700 13px system-ui, sans-serif"; x.fillText("www.meteonerola.it", 12, y + CRED / 2);
     x.textAlign = "right"; x.fillStyle = "#555"; x.font = "11px system-ui, sans-serif";
-    x.fillText("Satellite: EUMETSAT (dati modificati) · Radar: Protezione Civile · Modello: WRF Nerola", W - 12, y + CRED / 2);
+    x.fillText(acc ? "Radar: Protezione Civile (dati elaborati)" : "Satellite: EUMETSAT (dati modificati) · Radar: Protezione Civile · Modello: WRF Nerola", W - 12, y + CRED / 2);
     return cv;
   }
   function pulsantiImmagine(pref, L, quale) {
@@ -691,10 +765,11 @@
     $(pref + "-scarica").onclick = () => {
       L.avvia(false); const cv = quale(), p = L.passi[Math.round(L.pos)];
       const a = document.createElement("a"); a.href = cv.toDataURL("image/jpeg", 0.92);
-      a.download = "meteonerola_" + p.t.toISOString().slice(0, 16).replace(/[-:T]/g, "") + ".jpg"; document.body.appendChild(a); a.click(); a.remove();
+      a.download = "meteonerola_" + (pref === "r" && prodAcc() ? "pioggia_caduta_" + prodAcc().ore + "h_" + data(prodAcc().ora).toISOString().slice(0, 16).replace(/[-:T]/g, "") : p.t.toISOString().slice(0, 16).replace(/[-:T]/g, "")) + ".jpg";
+      document.body.appendChild(a); a.click(); a.remove();
     };
   }
-  pulsantiImmagine("r", LR, () => immagineCompleta(LR, R.zona, false, "radar", ""));
+  pulsantiImmagine("r", LR, () => immagineCompleta(LR, R.zona, false, "radar", "", prodAcc()));
   // dalla mappa interattiva: l'immagine completa della zona che si sta guardando (Sabina se si e' vicini a Nerola)
   pulsantiImmagine("m", LM, () => immagineCompleta(LM, M.carta && M.carta.getZoom() >= 10 ? "sabina" : "lazio", M.strati.nubi, M.vistaTipo, M.esperto));
 
@@ -812,13 +887,18 @@
     if (nt.telegram_link) al += ' <a href="' + nt.telegram_link + '" target="_blank" rel="noopener">Canale Telegram</a>';
     $("allerte").innerHTML = al;
   }
+  // legenda a gradini: ogni colore occupa lo stesso spazio (come le scale dei radar), sotto i valori di inizio gradino
+  function gradini(sc, etichette) {
+    const n = sc.length, pos = (k) => (100 * k / n).toFixed(2);
+    return { sfondo: "linear-gradient(90deg," + sc.map(([v, c], k) => c + " " + pos(k) + "% " + pos(k + 1) + "%").join(",") + ")",
+             html: sc.map(([v], k) => etichette.includes(v) ? '<span style="left:' + pos(k) + '%">' + String(v).replace(".", ",") + "</span>" : "").join("") };
+  }
   function riempiScala() {
     const sc = S.radar.scala; if (!sc) return;
-    const lmin = Math.log(0.2), lmax = Math.log(100), pos = (v) => Math.min(100, Math.max(0, 100 * (Math.log(v) - lmin) / (lmax - lmin)));
-    document.querySelectorAll("[data-scala]").forEach((b) => {
-      b.style.background = "linear-gradient(90deg," + sc.map(([v, c]) => c + " " + pos(v).toFixed(1) + "%").join(",") + ")";
-      b.innerHTML = [0.2, 0.5, 1, 2, 5, 10, 20, 50, 100].map((v) => '<span style="left:' + pos(v) + '%">' + String(v).replace(".", ",") + "</span>").join("");
-    });
+    const g = gradini(sc, [0.1, 0.5, 1.2, 2.5, 5, 10, 20, 40, 90, 200]);
+    document.querySelectorAll("[data-scala]").forEach((b) => { b.style.background = g.sfondo; b.innerHTML = g.html; });
+    const sa = S.radar.accumuli && S.radar.accumuli.scala;
+    if (sa) { const h = gradini(sa, [0.2, 2, 6, 15, 30, 60, 100, 200]); document.querySelectorAll("[data-scala-acc]").forEach((b) => { b.style.background = h.sfondo; b.innerHTML = h.html; }); }
   }
   function situazione() {
     const info = S.radar.info, m = info.movimento || {}, w = info.wrf || {}, pn = (S.sat && S.sat.previsione_nubi) || {};
@@ -841,6 +921,31 @@
       h += "<tr><td>+" + (s >= 60 ? (s / 60) + " h" : s + " min") + "</td><td class='" + (v.nowcast > v.persistenza ? "meglio" : "") + "'>" + v.nowcast + "</td><td>" + v.persistenza + "</td><td>" + v.casi + "</td></tr>"; });
     T.innerHTML = c ? h : "<tr><td>ancora nessun confronto (servono giorni di pioggia)</td></tr>";
   }
+  // ---- gara dei metodi
+  const G = { tipo: "pioggia", periodo: "7" };
+  function gara() {
+    const T = $("gara-tab"), g = S.gara, per = g && g.periodi && g.periodi[G.periodo], d = per && per[G.tipo];
+    const sc = (g && g.scadenze) || [30, 60, 120, 180, 240, 300, 360];
+    const sch = (m) => "+" + (m < 60 ? m + " min" : (m / 60) + (m === 60 ? " ora" : " ore"));
+    const sel = g && g.scelta;
+    $("gara-vince").innerHTML = G.tipo === "pioggia" && sel ? "Previsione pubblicata adesso: <b>" + sel.nome + "</b> <span style='color:var(--muto)'>(" + sel.motivo + ")</span>" : "";
+    if (!d || !d.metodi.length) { T.innerHTML = "<tr><td>ancora nessun confronto: servono ore con " + (G.tipo === "pioggia" ? "pioggia" : "nubi") + " (i primi voti arrivano 30 minuti dopo l'inizio)</td></tr>"; $("gara-nota").textContent = ""; return; }
+    const primi = {};
+    sc.forEach((m) => { let b = -1; d.metodi.forEach((r) => { const v = r.scadenze[m]; if (v && r.chiave !== "pubblicata" && v.voto > b) b = v.voto; }); primi[m] = b; });
+    let h = "<tr><th>Metodo</th><th>Media</th>" + sc.map((m) => "<th>" + sch(m) + "</th>").join("") + "<th>Casi</th></tr>";
+    d.metodi.forEach((r) => {
+      h += "<tr class='" + (r.chiave === "pubblicata" ? "pubblicata" : "") + "'><td class='nome'>" + r.nome + "<small>" + r.spiegazione + "</small></td><td class='voto'><b>" + Math.round(r.voto_medio) + "%</b></td>";
+      sc.forEach((m) => { const v = r.scadenze[m];
+        h += v ? "<td class='voto" + (v.voto === primi[m] && r.chiave !== "pubblicata" ? " primo" : "") + "' title='" + (v.azzeccati != null ? "punti azzeccati: " + v.azzeccati + "%" : "") + (v.azzeccati_forte != null ? ", pioggia forte: " + v.azzeccati_forte + "%" : "") + " · " + v.casi + " confronti'>" + v.voto + "%</td>" : "<td>—</td>"; });
+      h += "<td>" + r.casi + "</td></tr>";
+    });
+    T.innerHTML = h;
+    $("gara-nota").textContent = "In evidenza il migliore di ogni colonna. Tieni il dito (o il mouse) su un voto per vedere anche la percentuale di punti azzeccati uno per uno. Aggiornata alle " + ora(data(g.aggiornata)) + ".";
+  }
+  document.querySelectorAll("[data-gara]").forEach((b) => b.addEventListener("click", () => {
+    document.querySelectorAll("[data-gara]").forEach((x) => x.setAttribute("aria-pressed", x === b)); G.tipo = b.dataset.gara; gara(); }));
+  document.querySelectorAll("[data-gara-p]").forEach((b) => b.addEventListener("click", () => {
+    document.querySelectorAll("[data-gara-p]").forEach((x) => x.setAttribute("aria-pressed", x === b)); G.periodo = b.dataset.garaP; gara(); }));
   const INFO_ESPERTI = {
     visibile: "Visibile ad alta definizione (0,6 µm, pixel di 500 m), come una foto in bianco e nero. Di notte passa da solo all'infrarosso.",
     colori: "Colori reali di giorno; di notte nubi grigio-azzurre e luci delle città.",
@@ -857,11 +962,12 @@
       S.radar = ind; S.versione = ind.aggiornato;
       try { S.sat = await json("satellite.json"); } catch (e) { S.sat = null; }
       try { S.pagella = await json("pagella.json"); } catch (e) { S.pagella = null; }
+      try { S.gara = await json("gara.json"); } catch (e) { S.gara = null; }
       try { S.notifiche = await json("notifiche.json"); } catch (e) { S.notifiche = null; }
       try { S.stazione = await json("stazione.json"); } catch (e) { S.stazione = null; }
       try { const r = await fetch("griglia.bin?t=" + Date.now(), { cache: "no-store" }); if (r.ok) S.griglia = new Uint8Array(await r.arrayBuffer()); } catch (e) { S.griglia = null; }
       $("errore").style.display = "none";
-      riempiScala(); riempiAdesso(); situazione(); pagella();
+      riempiScala(); riempiAdesso(); situazione(); pagella(); gara(); pulsantiAccumuli();
       const g1 = LR.gioca, g2 = LM.gioca; preparaRadar(); preparaCarta(); if (g1) LR.avvia(true); if (g2) LM.avvia(true);
       if (prima) { let sc = "sez-radar"; try { sc = localStorage.getItem("mn_scheda") || sc; } catch (e) { /* niente */ } if ($(sc)) mostraScheda(sc); }
     } catch (e) {

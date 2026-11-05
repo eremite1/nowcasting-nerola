@@ -27,6 +27,8 @@ import geo
 # Riquadro del radar tenuto per il calcolo (lon_min, lon_max, lat_min, lat_max): molto piu' largo del Lazio, perche'
 # in 6 ore la pioggia puo' arrivare da 300 km e oltre (mare Tirreno, Toscana, Campania, Adriatico).
 RIQUADRO_RADAR = (8.3, 17.2, 38.8, 45.4)
+# Pioggia caduta (accumulo in mm) misurata dal radar nelle ultime 1, 3, 6, 12 e 24 ore (prodotti Radar-DPC)
+ACCUMULI = ("SRT1", "CUM3", "CUM6", "CUM12", "CUM24")
 # Riquadro del satellite (serve per la taratura delle temperature)
 RIQUADRO_SAT = (10.4, 15.2, 40.3, 43.9)
 
@@ -63,7 +65,7 @@ def serie(tipo, ore, passo_min, riquadro, diagnosi):
             print(f"  {tipo} {iso(ms)}: file non leggibile ({e})", file=sys.stderr)
             diagnosi.setdefault("errori", []).append(f"{tipo} {iso(ms)}: {e}")
             continue
-        if tipo in ("SRI", "POH"):
+        if tipo in ("SRI", "POH") or tipo in ACCUMULI:
             a[a < 0] = np.nan      # valori negativi (-9999) = "nessun dato", non "zero"
         if tipo == "TEMP":
             a[(a < -60) | (a > 330)] = np.nan      # il radar scrive -9999 dove non vede (fuori copertura): e' "nessun dato", non "zero"
@@ -124,6 +126,20 @@ def main():
         except Exception as e:  # noqa: BLE001
             diagnosi[f"errore_{tipo}"] = str(e)
             print(f"ATTENZIONE {tipo} non disponibile: {e}", file=sys.stderr)
+    # pioggia caduta nelle ultime 1-24 ore (un solo campo per prodotto, il piu' recente); se manca, pazienza
+    accumuli = {}
+    for tipo in ACCUMULI:
+        try:
+            d = serie(tipo, 0.0, 60, RIQUADRO_SAT, diagnosi)
+            if np.nanmax(d["campi"]) > 2000:          # valori assurdi: unita' diverse da quelle attese
+                raise RuntimeError(f"valori fuori scala (massimo {np.nanmax(d['campi']):.0f})")
+            accumuli[tipo] = d
+        except Exception as e:  # noqa: BLE001
+            diagnosi[f"errore_{tipo}"] = str(e)[:200]
+            print(f"ATTENZIONE {tipo} non disponibile: {e}", file=sys.stderr)
+    if accumuli:
+        with open(out / "accumuli.pkl", "wb") as f:
+            pickle.dump(accumuli, f)
     diagnosi["secondi"] = round(time.time() - inizio, 1)
     (out / "diagnosi.json").write_text(json.dumps(diagnosi, indent=1, default=str))
     print(f"fatto in {diagnosi['secondi']} s")

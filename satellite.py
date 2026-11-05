@@ -610,6 +610,14 @@ def main():
                 indice["zone"][chiave]["nubiprev"].append({"file": f"sat/{n}", "ora": iso(t),
                                                            "minuti_dal_satellite": int((t - t_ult).total_seconds() // 60)})
     indice["previsione_nubi"] = info_nubi
+    # gara dei metodi per le nubi (vedi gara.py): non deve mai bloccare il satellite
+    if seq:
+        try:
+            import gara
+            n = gara.nubi_giro(mezza, seq, seq[-1], prev_nubi, wrf_prev, lon_m, lat_m, pk_mezza, a.precedente)
+            print(f"gara nubi: {n} confronti nuovi")
+        except Exception as e:  # noqa: BLE001
+            print("ATTENZIONE: gara delle nubi non riuscita:", e, file=sys.stderr)
 
     # ---- griglia per "tocca la mappa" e riassunto di Nerola
     passi = len(nc["tempi"])

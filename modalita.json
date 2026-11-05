@@ -1,2 +1,2 @@
-{"wrf_totale_radar": false, "wrf_totale_nubi": true,
- "nota": "radar: movimento misurato e verificato (il WRF totale muoveva le celle in modo innaturale); nubi: prova WRF totale"}
+{"wrf_totale_radar": false, "wrf_totale_nubi": true, "scelta_automatica": true,
+ "nota": "radar: movimento misurato e verificato (il WRF totale muoveva le celle in modo innaturale); nubi: prova WRF totale. scelta_automatica: la previsione pubblicata della pioggia e' il metodo che vince la gara (gara.py), quando ci sono abbastanza confronti"}

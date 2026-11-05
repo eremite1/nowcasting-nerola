@@ -16,7 +16,7 @@ python "$QUI/scarica.py" --out "$DATI" >> "$REG" 2>&1
 WRF=()
 if [ -n "${WRF_FILE:-}" ] && [ -f "$WRF_FILE" ]; then WRF=(--wrf "$WRF_FILE"); fi
 PAG=(); [ -f "$PUB/pagella.json" ] && PAG=(--pagella "$PUB/pagella.json")
-python "$QUI/nowcast.py" --dati "$DATI" "${WRF[@]}" "${PAG[@]}" --out "$DATI/nowcast.pkl" >> "$REG" 2>&1
+python "$QUI/nowcast.py" --dati "$DATI" "${WRF[@]}" "${PAG[@]}" --precedente "$PUB" --out "$DATI/nowcast.pkl" >> "$REG" 2>&1
 
 python "$QUI/verifica.py" --dati "$DATI" --nowcast "$DATI/nowcast.pkl" --precedente "$PUB" --out "$NUOVO" >> "$REG" 2>&1 \
   || echo "ATTENZIONE: pagella non riuscita" >> "$REG"
@@ -33,6 +33,16 @@ if ! timeout 480 python "$QUI/satellite.py" --cache "${CACHE_SAT:-$DATI/cache_sa
   [ -f "$PUB/satellite.json" ] && cp "$PUB/satellite.json" "$NUOVO/" || true
   [ -f "$PUB/griglia.bin" ] && cp "$PUB/griglia.bin" "$NUOVO/" || true
 fi
+
+# gara dei metodi: archivio delle previsioni di tutti i metodi, confronto con il radar vero, classifica (gara.json)
+python "$QUI/gara_giro.py" --dati "$DATI" --nowcast "$DATI/nowcast.pkl" --precedente "$PUB" --out "$NUOVO" >> "$REG" 2>&1 || {
+  echo "ATTENZIONE: gara dei metodi non riuscita" >> "$REG"
+  for f in gara.json gara_storico.json; do [ -f "$PUB/$f" ] && cp "$PUB/$f" "$NUOVO/" || true; done
+}
+
+# radar come pluviometri virtuali (e WRF negli stessi punti) per le pagelle dei modelli contro il radar
+python "$QUI/radar_punti.py" --precedente "$PUB" --out "$NUOVO" --wrf "${WRF_FILE:-}" >> "$REG" 2>&1 \
+  || echo "ATTENZIONE: radar nei punti non aggiornato" >> "$REG"
 
 python "$QUI/stazione.py" --out "$NUOVO" >> "$REG" 2>&1 || true
 

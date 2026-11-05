@@ -33,6 +33,14 @@ confronto: entra nella previsione solo dove le verifiche dimostrano che a quella
    radiazione infrarossa al suolo (`previsione_nubi.py`, `wrf.py`).
 9. **Nerola adesso**: pioggia in arrivo, fulmine piu' vicino, cielo, in frasi semplici; e una griglia per sapere la
    previsione toccando un punto qualsiasi della mappa (`riassunto.py`).
+11. **Gara dei metodi** (`gara.py`, `gara_giro.py`): ogni 10 minuti le 6 ore vengono previste in 12 modi diversi
+   (solo spostamento, spostamento a due scale, radar che evolve col WRF, solo WRF, miscele con pesi diversi...). Quando
+   arriva l'ora prevista ogni previsione viene sovrapposta al radar vero (e al satellite per le nubi) e riceve un voto
+   0-100% (Fractions Skill Score su quadrati di 10 km). La classifica e' in `gara.json`; con abbastanza confronti la
+   previsione pubblicata diventa da sola quella del metodo vincente (`modalita.json`, voce `scelta_automatica`).
+12. **Pioggia caduta** nelle ultime 1, 3, 6, 12 e 24 ore (prodotti SRT1 e CUM della Protezione Civile).
+13. **Radar come pluviometri virtuali** (`radar_punti.py`): pioggia oraria in 192 punti sul Lazio, per confrontare con il
+   radar le previsioni di tutti i modelli nella pagella delle Mappe Lazio (anche WRF Nerola, stessi punti).
 10. **Pagina**: un'unica mappa con strati (nubi, pioggia, fulmini), animazione sfumata da -2 a +6 ore, zoom, copia e
    salva; per esperti visibile HD, colori reali, infrarosso e top nubi.
 
@@ -65,6 +73,8 @@ I dettagli scientifici (metodi e riferimenti) sono scritti all'inizio del file `
 | `tipo.py` | pioggia, mista, neve e grandine |
 | `nowcast.py` | il cuore: movimento, estrapolazione, correzione del WRF, fusione |
 | `verifica.py` | la pagella |
+| `gara.py`, `gara_giro.py` | la gara dei metodi: archivio, confronto con radar e satellite, classifica |
+| `radar_punti.py` | pioggia oraria del radar in punti fissi (e del WRF negli stessi punti) per le pagelle dei modelli |
 | `disegna.py` | le immagini |
 | `sfondo.py` | confini, fiumi, nomi dei paesi e rilievo (lo stesso di wrf-nerola) |
 | `pagina/index.html` | la pagina web |

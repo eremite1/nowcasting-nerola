@@ -307,7 +307,8 @@ def ponte_riempi(a):
     return a[tuple(idx)]
 
 
-def calcola(radar, wrf_prev=None, ponte_fn=None, pagella=None):
+def calcola(radar, wrf_prev=None, ponte_fn=None, pagella=None, scelta=None):
+    """scelta: (metodo, motivo) da pubblicare secondo la gara dei metodi (gara.py), o None per il metodo predefinito."""
     import fusione
     tempi = [tempo(t) for t in radar["tempi"]]
     t0 = tempi[-1]
@@ -574,6 +575,54 @@ def calcola(radar, wrf_prev=None, ponte_fn=None, pagella=None):
     evol = [np.where(v, np.where(x > secco + 0.5, 10 ** (x / 10.0), 0.0), np.nan).astype("float32") for x, v in zip(evo, evo_val)]
     info["evoluzione"] = {**evo_info, "movimento": vento_info}
 
+    # ---- GARA DEI METODI (gara.py): tante previsioni diverse delle stesse 6 ore, confrontate poi con il radar vero.
+    #      Ogni metodo e' una funzione del passo k (1..passi) che ritorna la pioggia (mm/h) o None se non si puo' fare.
+    import gara as gara_mod
+    metodi = {"estrapolazione": lambda k: estr[k - 1], "evoluzione": lambda k: evol[k - 1]}
+    pz = np.nan_to_num(radar0) >= SOGLIA
+    um, vm = (float(u_c[pz].mean()), float(v_c[pz].mean())) if pz.sum() > 50 else (float(u_c.mean()), float(v_c.mean()))
+    tr, trv = estrapola(radar0, np.full(radar0.shape, um), np.full(radar0.shape, vm), passi)
+    metodi["traslazione"] = lambda k: np.where(trv[k - 1], tr[k - 1], np.nan)
+    if wrf_corr:
+        metodi["wrf_corretto"] = lambda k: wrf_corr.get(k)
+        es_ = lambda k: (np.nan_to_num(estr[k - 1]), np.isfinite(estr[k - 1]))  # noqa: E731
+        metodi["media"] = lambda k: None if wrf_corr.get(k) is None else fondi(*es_(k), wrf_corr[k], 0.5)
+        metodi["sfumata_1h"] = lambda k: None if wrf_corr.get(k) is None else fondi(*es_(k), wrf_corr[k], math.exp(-k * PASSO_MIN / 60.0))
+        metodi["sfumata_3h"] = lambda k: None if wrf_corr.get(k) is None else fondi(*es_(k), wrf_corr[k], math.exp(-k * PASSO_MIN / 180.0))
+        metodi["pesi_ottimali"] = lambda k: None if wrf_corr.get(k) is None else fondi(*es_(k), wrf_corr[k],
+                                                                                     peso_radar(k * PASSO_MIN, tau_tot, c_prior))
+    if wrf_prev is not None and ponte is not None:
+        def _grezzo(k):
+            w = wrf_prev.campo(t0 + timedelta(minutes=k * PASSO_MIN))
+            return None if w is None else ponte.porta(w)
+        metodi["wrf_grezzo"] = _grezzo
+    piovosa = lambda ev: [np.where(v, np.where(x > secco + 0.5, 10 ** (x / 10.0), 0.0), np.nan).astype("float32") for x, v in zip(*ev[:2])]  # noqa: E731
+    try:
+        if wrf_evo and wrf_prev is not None and wrf_prev.vento_guida(t0) is not None:
+            # solo il vento del WRF sposta la pioggia di adesso, nessuna crescita o calo
+            vw = piovosa(evoluzione.evolvi(db(radar0), noto0, {}, mov_oss_liscio, mov_wrf_passo, passi, PASSO_MIN, sigma=12.0,
+                                           minimo=secco, massimo=23.0, tau_mov=30.0, peso_tendenza=0.0))
+            metodi["vento_wrf"] = lambda k: vw[k - 1]
+        if wrf_evo and mov_orari and not WRF_TOTALE:
+            def _mo(k):
+                t = t0 + timedelta(minutes=k * PASSO_MIN - PASSO_MIN / 2)
+                for ta, tb, mu, mv in mov_orari:
+                    if ta <= t <= tb:
+                        return mu, mv
+                return None
+            wt = piovosa(evoluzione.evolvi(db(radar0), noto0, campi_db, mov_oss_liscio, _mo, passi, PASSO_MIN, sigma=5.0,
+                                           minimo=secco, massimo=23.0, tau_mov=1e-6, peso_tendenza=1.0, max_tendenza=30.0))
+            metodi["wrf_totale"] = lambda k: wt[k - 1]
+        elif WRF_TOTALE:
+            metodi["wrf_totale"] = metodi["evoluzione"]
+    except Exception as e:  # noqa: BLE001
+        info["gara_errore"] = str(e)[:200]
+    scelto, motivo = scelta if scelta else ("evoluzione", "metodo predefinito")
+    if scelto not in metodi:
+        motivo = f"'{scelto}' non disponibile adesso, uso il metodo predefinito"
+        scelto = "evoluzione"
+    info["metodo_pubblicato"] = {"chiave": scelto, "nome": gara_mod.METODI["pioggia"].get(scelto, (scelto,))[0], "motivo": motivo}
+
     # ---- 7. combinazione finale: l'evoluzione guidata dal WRF e' la previsione. Solo se le verifiche dei giorni scorsi
     #         dimostrano che a una certa scadenza la semplice estrapolazione del radar fa meglio, la si mescola (pesi
     #         ottimali calcolati dall'abilita' misurata), cosi' la precisione la decidono i dati.
@@ -583,6 +632,18 @@ def calcola(radar, wrf_prev=None, ponte_fn=None, pagella=None):
         minuti = k * PASSO_MIN
         ev = evol[k - 1]
         es = estr[k - 1]
+        if scelto != "evoluzione":
+            # la gara dei metodi ha un vincitore diverso dal predefinito: si pubblica quello
+            c_ = metodi[scelto](k)
+            if c_ is None:
+                c_ = ev
+            previsioni.append(np.asarray(c_, dtype="float32"))
+            pesi.append(1.0)
+            fonte_pesi = "metodo vincente della gara: " + info["metodo_pubblicato"]["nome"]
+            if minuti in (30, 60, 120, 180):
+                wrfc = wrf_corr.get(k)
+                comp[minuti] = {"estrapolazione": es, "evoluzione": ev, "wrf": None if wrfc is None else wrfc.astype("float32")}
+            continue
         r_v = fusione.abilita_misurata(pagella, minuti, "evoluzione")
         r_e = fusione.abilita_misurata(pagella, minuti, "estrapolazione")
         w = 0.0       # peso dell'estrapolazione
@@ -600,10 +661,27 @@ def calcola(radar, wrf_prev=None, ponte_fn=None, pagella=None):
             comp[minuti] = {"estrapolazione": es, "evoluzione": ev, "wrf": None if wrfc is None else wrfc.astype("float32")}
     info["peso_evoluzione"] = {f"+{k * PASSO_MIN}": pesi[k] for k in (1, 3, 6, 12, 18, 24, 30, 36) if k < len(pesi)}
     info["pesi"] = fonte_pesi
+    # campi della gara alle scadenze di confronto, solo sul Lazio (file leggero)
+    g = radar["griglia"]
+    rq = g.riquadro_indici(*gara_mod.LAZIO)
+    taglia = lambda a: None if a is None else np.asarray(a, dtype="float32")[rq[0]:rq[1], rq[2]:rq[3]]  # noqa: E731
+    gara_campi = {"pubblicata": {}}
+    for minuti in gara_mod.SCADENZE:
+        k = minuti // PASSO_MIN
+        if k > passi:
+            continue
+        gara_campi["pubblicata"][minuti] = taglia(previsioni[k])
+        for nome, f in metodi.items():
+            try:
+                gara_campi.setdefault(nome, {})[minuti] = taglia(f(k))
+            except Exception as e:  # noqa: BLE001
+                info.setdefault("gara_errori", {})[nome] = str(e)[:120]
+    info["gara_metodi"] = sorted(gara_campi)
     return {"campi": np.stack(previsioni), "tempi": [(t0 + timedelta(minutes=k * PASSO_MIN)).strftime("%Y-%m-%dT%H:%MZ")
                                                     for k in range(passi + 1)],
             "pesi": pesi, "griglia": radar["griglia"], "info": info, "componenti": comp,
-            "u": u_c.astype("float32"), "v": v_c.astype("float32")}
+            "u": u_c.astype("float32"), "v": v_c.astype("float32"),
+            "gara": {"campi": gara_campi, "ritaglio": [int(x) for x in rq], "oss0": taglia(radar0)}}
 
 
 def main():
@@ -612,6 +690,7 @@ def main():
     ap.add_argument("--wrf", default=None)
     ap.add_argument("--out", required=True)
     ap.add_argument("--pagella", default="", help="pagella.json del giro precedente (per i pesi imparati)")
+    ap.add_argument("--precedente", default="", help="cartella pubblicata del giro precedente (classifica della gara)")
     a = ap.parse_args()
     with open(f"{a.dati}/radar.pkl", "rb") as f:
         radar = pickle.load(f)
@@ -632,7 +711,11 @@ def main():
             pagella = _j.loads(open(a.pagella).read())
         except Exception:  # noqa: BLE001
             pagella = None
-    ris = calcola(radar, wrf_prev, ponte_fn, pagella)
+    scelta = None
+    if a.precedente and _wrf_totale("scelta_automatica"):
+        import gara as gara_mod
+        scelta = gara_mod.migliore(a.precedente, "pioggia", "evoluzione")
+    ris = calcola(radar, wrf_prev, ponte_fn, pagella, scelta)
     with open(a.out, "wb") as f:
         pickle.dump(ris, f)
     import json

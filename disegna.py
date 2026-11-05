@@ -41,11 +41,18 @@ AREE = {
     "lazio": {"nome": "Lazio", "riquadro": (11.30, 14.25, 41.05, 43.20), "larghezza": 860, "dettaglio": False},
     "sabina": {"nome": "Sabina", "riquadro": (12.34, 13.20, 41.81, 42.45), "larghezza": 860, "dettaglio": True},
 }
-# Classi di intensita' della pioggia (mm/h) e colori (scala radar classica: azzurri, blu, verdi, gialli, rossi, viola)
-SOGLIE = [0.2, 0.5, 1, 2, 4, 7, 10, 15, 25, 40, 60, 100]
-COLORI = ["#a6e3ff", "#5fc8ff", "#1e90ff", "#0a4fd0", "#00a84f", "#7acc00", "#ffe600", "#ffa000", "#ff3c00",
-          "#c8001e", "#ff00c8", "#8a00ff"]
-ALFA = [200, 215] + [235] * 10
+# Classi di intensita' della pioggia (mm/h) e colori: scala "da radar" a gradini netti e colori pieni (nessuna
+# trasparenza, nessuna sfumatura): azzurri e blu per la pioggia debole, verdi per la moderata, gialli e arancio per la
+# forte, rossi per la molto forte, rosa e viola per i nubifragi e la grandine. Ogni gradino si distingue a colpo d'occhio.
+SOGLIE = [0.1, 0.25, 0.5, 0.8, 1.2, 1.8, 2.5, 3.5, 5, 7, 10, 14, 20, 28, 40, 60, 90, 130, 200]
+COLORI = ["#a5ecff", "#62d5f6", "#2fb0ef", "#1f78e2", "#1849c9", "#0d8f3a", "#14a845", "#3cc23a", "#86d92a", "#f0e600",
+          "#ffc300", "#ff9200", "#ff5800", "#eb1c1c", "#bd0016", "#8a0012", "#ff4fd2", "#d01fc8", "#8e10b8"]
+ALFA = [255] * len(SOGLIE)
+# pioggia caduta (accumulo, mm): scala a parte, dal verde chiaro al viola
+SOGLIE_ACC = [0.2, 1, 2, 4, 6, 10, 15, 20, 30, 40, 60, 80, 100, 150, 200, 300]
+COLORI_ACC = ["#c9f2c2", "#8edb86", "#4cbf4f", "#1f9a3e", "#9fdcff", "#4fb2f5", "#1f78e2", "#1440b0", "#f0e600",
+              "#ffb300", "#ff6a00", "#e61919", "#a8001e", "#ff4fd2", "#b81fc8", "#6a0aa0"]
+ACCUMULI = [("SRT1", 1), ("CUM3", 3), ("CUM6", 6), ("CUM12", 12), ("CUM24", 24)]
 # neve e mista: scale a parte (bianco-lilla-viola per la neve, rosa per la mista), soglie in mm/h di acqua equivalente
 SOGLIE_NEVE = [0.2, 0.5, 1, 2, 4, 7]
 COLORI_NEVE = ["#f4f4ff", "#dcdcff", "#bdbdf7", "#9b9be8", "#7a6fd6", "#5a46b8"]
@@ -118,32 +125,31 @@ def ammorbidisci(campo, sigma):
 
 # ------------------------------------------------------------------------------------------ livelli trasparenti
 
-# Scala unica e continua dell'intensita' (le stesse tinte delle soglie classiche, sfumate tra una soglia e l'altra).
-# Il tipo di precipitazione NON cambia il colore: si vede con un motivo semitrasparente sopra il colore.
-LIVELLI = np.geomspace(0.2, 150.0, 60)          # 60 gradini di intensita' (mm/h)
-I_BASE, I_RIGHE, I_PUNTI = 2, 62, 122           # indici della tavolozza: colore, colore + righe chiare, colore + puntini
+# Scala a gradini (SOGLIE e COLORI qui sopra). Il tipo di precipitazione NON cambia il colore: si vede con un motivo
+# sopra il colore (righe chiare per la neve, puntini bianchi per la grandine).
+LIVELLI = np.array(SOGLIE, dtype="float64")
+N_LIV = len(LIVELLI)
+I_BASE, I_RIGHE, I_PUNTI = 2, 2 + N_LIV, 2 + 2 * N_LIV     # indici della tavolozza: colore, + righe, + puntini
 
 
 def colore_continuo(v):
-    """Colore RGB (0-255) per l'intensita' v (mm/h), interpolato in scala logaritmica tra le soglie."""
-    x = np.log(np.clip(v, SOGLIE[0], SOGLIE[-1]))
-    xs = np.log(SOGLIE)
+    """Colore RGB (0-255) del gradino in cui cade l'intensita' v (mm/h)."""
+    k = np.clip(np.searchsorted(LIVELLI, np.asarray(v, dtype="float64"), side="right") - 1, 0, N_LIV - 1)
     rgb = np.array([hex_rgb(c) for c in COLORI], dtype="float64")
-    return np.stack([np.interp(x, xs, rgb[:, k]) for k in range(3)], axis=-1)
+    return rgb[k]
 
 
 def tavolozza_pioggia():
-    """0 trasparente, 1 nessun dato, 2-61 intensita', 62-121 intensita' con righe chiare (neve, mista, gelicidio),
-    122-181 intensita' con puntini bianchi (grandine)."""
+    """0 trasparente, 1 nessun dato, poi i gradini: colore pieno, colore con righe chiare (neve), colore con puntini
+    bianchi (grandine)."""
     pal = [0, 0, 0] + list(hex_rgb(GRIGIO_NODATO[0]))
     alfa = [0, GRIGIO_NODATO[1]]
     base = colore_continuo(LIVELLI)
-    a = np.interp(np.log(LIVELLI), np.log([0.2, 1.0]), [185, 235])
-    for mescola, extra in ((0.0, 0), (0.62, 15), (0.85, 20)):
+    for mescola in (0.0, 0.62, 0.85):
         c = base * (1 - mescola) + 255 * mescola
-        for rgb, al in zip(c, a):
+        for rgb in c:
             pal += [int(round(x)) for x in rgb]
-            alfa.append(int(min(255, al + extra)))
+            alfa.append(255)
     return pal, alfa
 
 
@@ -166,7 +172,7 @@ def ricampiona_pioggia(campo, mappa):
     v = cv2.remap(d.astype("float32"), mx, my, cv2.INTER_CUBIC, borderMode=cv2.BORDER_CONSTANT, borderValue=-13.0)
     n = cv2.remap(noto, mx, my, cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT, borderValue=0)
     v = 10 ** (v / 10.0)
-    v = np.where(v < 0.15, 0.0, v)
+    v = np.where(v < SOGLIE[0], 0.0, v)
     return np.where(n > 0.5, v, np.nan)
 
 
@@ -201,6 +207,23 @@ def salva_pioggia(valori, percorso, tipo=None, grandine=None):
     idx[nodato] = 1
     im = Image.fromarray(idx, "P")
     pal, alfa = tavolozza_pioggia()
+    im.putpalette(pal + [0] * (768 - len(pal)))
+    im.save(percorso, optimize=True, transparency=bytes(alfa + [0] * (256 - len(alfa))))
+
+
+def salva_accumulo(valori, percorso):
+    """Pioggia caduta (mm) a gradini, colori pieni; trasparente dove non e' caduto nulla."""
+    idx = np.zeros(valori.shape, dtype=np.uint8)
+    v = np.nan_to_num(valori, nan=0.0)
+    k = np.searchsorted(SOGLIE_ACC, v, side="right")          # 0 = sotto la prima soglia
+    idx[:] = k
+    idx[~np.isfinite(valori)] = len(SOGLIE_ACC) + 1
+    pal = [0, 0, 0]
+    for c in COLORI_ACC:
+        pal += list(hex_rgb(c))
+    pal += list(hex_rgb(GRIGIO_NODATO[0]))
+    alfa = [0] + [255] * len(COLORI_ACC) + [GRIGIO_NODATO[1]]
+    im = Image.fromarray(idx, "P")
     im.putpalette(pal + [0] * (768 - len(pal)))
     im.save(percorso, optimize=True, transparency=bytes(alfa + [0] * (256 - len(alfa))))
 
@@ -387,14 +410,19 @@ def confini(zona, sf, percorso, massimo=40, scuro=False):
 
 
 def fondo_grigio(da, percorso):
-    """Versione chiara e quasi grigia della mappa, per la vista "solo radar" (i colori della pioggia risaltano)."""
+    """Fondo per il radar: terra grigio medio con un velo di rilievo, mare grigio-blu piu' scuro. Neutro, cosi' i colori
+    pieni della pioggia risaltano (anche quelli chiari) e i confini neri si leggono bene."""
     a = np.asarray(Image.open(da).convert("RGB"), dtype="float64") / 255
     lum = a @ np.array([0.30, 0.59, 0.11])
     mare = (a[..., 2] > a[..., 0] + 0.12) & (a[..., 2] > a[..., 1])
-    g = 0.80 + 0.20 * (lum - lum.mean()) / max(lum.std(), 1e-6) * 0.35
-    rgb = np.stack([g, g, g * 1.01], axis=-1)
-    rgb[mare] = np.array([0.80, 0.86, 0.92]) + 0.03 * (lum[mare, None] - 0.3)
-    Image.fromarray((np.clip(rgb, 0, 1) * 255).astype(np.uint8), "RGB").save(percorso, quality=88, optimize=True)
+    from scipy import ndimage
+    mare = ndimage.binary_opening(mare, iterations=1)
+    terra = ~mare
+    rel = (lum - lum[terra].mean()) / max(lum[terra].std(), 1e-6) if terra.any() else lum * 0
+    g = 0.52 + 0.045 * np.clip(rel, -2.5, 2.5)
+    rgb = np.stack([g, g, g * 1.015], axis=-1)
+    rgb[mare] = np.array([0.40, 0.42, 0.46])
+    Image.fromarray((np.clip(rgb, 0, 1) * 255).astype(np.uint8), "RGB").save(percorso, quality=90, optimize=True)
 
 
 def fondo(zona, dem, percorso):
@@ -510,7 +538,7 @@ def main():
     indice["grandine"] = tipo_mod.grandine(gr, radar)
     # scala unica e continua (per la legenda della pagina) e motivi per il tipo
     indice["scala"] = [[float(round(v, 2)), "#%02x%02x%02x" % tuple(int(round(c)) for c in colore_continuo(np.array(v)))]
-                       for v in np.geomspace(0.2, 100.0, 24)]
+                       for v in SOGLIE]
     indice["motivi"] = {"neve": "righe oblique", "grandine": "puntini bianchi"}
     # tipo a Nerola (per il riassunto)
     cN, rN = nc["griglia"].indici(np.array([NEROLA[1]]), np.array([NEROLA[0]]))
@@ -537,6 +565,15 @@ def main():
             zs = [float(z[iy, ix]) for z in zs if z is not None]
             if zs:
                 extra["quota_neve"] = int(round(min(zs) / 50.0) * 50)
+    # pioggia caduta nelle ultime 1-24 ore (radar Protezione Civile)
+    acc = {}
+    if Path(f"{a.dati}/accumuli.pkl").exists():
+        try:
+            with open(f"{a.dati}/accumuli.pkl", "rb") as f:
+                acc = pickle.load(f)
+        except Exception as e:  # noqa: BLE001
+            print("ATTENZIONE: accumuli non leggibili:", e, file=sys.stderr)
+    indice["accumuli"] = {"scala": [[s_, c_] for s_, c_ in zip(SOGLIE_ACC, COLORI_ACC)], "prodotti": []}
     with open(f"{a.dati}/tipo.pkl", "wb") as f:
         pickle.dump({"nerola": tipo_nerola, "grandine": indice["grandine"], **extra}, f)
     for chiave, cfg in AREE.items():
@@ -579,6 +616,20 @@ def main():
             tk = tipi.get(t)
             salva_pioggia(ricampiona_pioggia(campo, mappa_nc), cart / "previsione" / f, ricampiona_tipo(tk, mappa_nc))
             voce["previsione"].append({"file": f"previsione/{f}", "ora": t, "minuti": k * 10, "peso_radar": nc["pesi"][k]})
+        for tipo_acc, ore_acc in ACCUMULI:
+            d = acc.get(tipo_acc)
+            if not d:
+                continue
+            (cart / "accumuli").mkdir(exist_ok=True)
+            campo = np.asarray(d["campi"][-1], dtype="float32")
+            v = ricampiona(campo, z.mappa_da(d["griglia"]))
+            salva_accumulo(v, cart / "accumuli" / f"{tipo_acc}.png")
+            prod = next((p_ for p_ in indice["accumuli"]["prodotti"] if p_["tipo"] == tipo_acc), None)
+            if prod is None:
+                prod = {"tipo": tipo_acc, "ore": ore_acc, "ora": d["tempi"][-1], "file": {}, "massimo": {}}
+                indice["accumuli"]["prodotti"].append(prod)
+            prod["file"][chiave] = f"accumuli/{tipo_acc}.png"
+            prod["massimo"][chiave] = round(float(np.nanmax(v)), 1) if np.isfinite(v).any() else 0.0
         ultimo = voce["radar"][-1] if voce["radar"] else None
         loc = ora_locale(t0)
         gg = ["lunedi'", "martedi'", "mercoledi'", "giovedi'", "venerdi'", "sabato", "domenica"][loc.weekday()]

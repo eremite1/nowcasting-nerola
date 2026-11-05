@@ -13,7 +13,7 @@ on:
   # quando cambia il programma parte (o si mette in coda) un avvio con il programma nuovo
   push:
     branches: [main]
-    paths: ["*.py", "giro.sh", "pagina/**", "requirements.txt", ".github/workflows/nowcasting.yml"]
+    paths: ["*.py", "giro.sh", "modalita.json", "pagina/**", "requirements.txt", ".github/workflows/nowcasting.yml"]
 
 permissions:
   contents: write
@@ -64,11 +64,19 @@ jobs:
           path: /home/runner/sfondo
           key: sfondo-v1
 
+      - name: Recupero l'archivio della gara dei metodi (previsioni ancora da confrontare)
+        uses: actions/cache/restore@v4
+        with:
+          path: /home/runner/gara
+          key: gara-${{ github.run_id }}
+          restore-keys: gara-
+
       - name: Giri ogni 10 minuti
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SFONDO: /home/runner/sfondo
           CACHE_SAT: /home/runner/cache_sat
+          GARA: /home/runner/gara
           WRF_FILE: /home/runner/wrf/d01_tutto.npz
           NTFY_TOPIC: meteonerola-allerte
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
@@ -131,6 +139,13 @@ jobs:
             sleep $(( PROSSIMO - ADESSO ))
           done
           echo "Tempo di lavoro finito: riparte un nuovo avvio"
+
+      - name: Salvo l'archivio della gara dei metodi per il prossimo avvio
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: /home/runner/gara
+          key: gara-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Faccio ripartire il nowcasting
         if: always()
