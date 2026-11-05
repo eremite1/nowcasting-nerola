@@ -446,7 +446,7 @@ def ora_locale(iso):
 
 def composito(cartella, file_pioggia, titolo, sottotitolo, percorso):
     """fondo + pioggia + confini + una fascia con titolo e legenda: immagine unica pronta da pubblicare."""
-    base = Image.open(cartella / "mappa.jpg").convert("RGBA")
+    base = Image.open(cartella / "mappa_grigia.jpg").convert("RGBA")   # stesso fondo grigio della pagina
     if file_pioggia:
         base.alpha_composite(Image.open(file_pioggia).convert("RGBA"))
     base.alpha_composite(Image.open(cartella / "confini.png").convert("RGBA"))
