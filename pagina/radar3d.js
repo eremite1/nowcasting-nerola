@@ -70,8 +70,22 @@ function griglia(nr, nc, quote, x0, z0, x1, z1, uv) {
   for (let r = 0; r < nr - 1; r++) for (let c = 0; c < nc - 1; c++) {
     const a = r * nc + c, b = a + 1, d = a + nc, e = d + 1; idx.push(a, d, b, b, d, e);
   }
+  // "gonna" lungo i bordi: una striscia che scende sotto il suolo, cosi' tra due tessere vicine (una leggera e una
+  // dettagliata) non restano fessure da cui si vede il cielo
+  const bordo = [];
+  for (let c = 0; c < nc; c++) bordo.push(c);
+  for (let r = 1; r < nr; r++) bordo.push(r * nc + nc - 1);
+  for (let c = nc - 2; c >= 0; c--) bordo.push((nr - 1) * nc + c);
+  for (let r = nr - 2; r >= 0; r--) bordo.push(r * nc);
+  const nb = bordo.length, P = new Float32Array((n + nb) * 3), U = new Float32Array((n + nb) * 2);
+  P.set(pos); U.set(uvs);
+  bordo.forEach((v, k) => {
+    P[3 * (n + k)] = pos[3 * v]; P[3 * (n + k) + 1] = pos[3 * v + 1] - 1.5 * esag; P[3 * (n + k) + 2] = pos[3 * v + 2];
+    U[2 * (n + k)] = uvs[2 * v]; U[2 * (n + k) + 1] = uvs[2 * v + 1];
+  });
+  for (let k = 0; k < nb; k++) { const a = bordo[k], b = bordo[(k + 1) % nb], a2 = n + k, b2 = n + (k + 1) % nb; idx.push(a, a2, b, b, a2, b2); }
   const geom = new THREE.BufferGeometry();
-  geom.setAttribute("position", new THREE.BufferAttribute(pos, 3)); geom.setAttribute("uv", new THREE.BufferAttribute(uvs, 2));
+  geom.setAttribute("position", new THREE.BufferAttribute(P, 3)); geom.setAttribute("uv", new THREE.BufferAttribute(U, 2));
   geom.setIndex(idx); geom.computeVertexNormals(); return geom;
 }
 
@@ -168,17 +182,18 @@ function etichetta(testo, forte) {
   x.font = "700 " + f + "px system-ui, sans-serif"; x.textBaseline = "middle";
   x.lineWidth = 8; x.strokeStyle = "rgba(255,255,255,.95)"; x.strokeText(testo, 12, c.height / 2);
   x.fillStyle = forte ? "#c0111f" : "#1d2733"; x.fillText(testo, 12, c.height / 2);
-  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthTest: false }));
-  const h = forte ? 5.5 : 4.2; s.scale.set(h * c.width / c.height, h, 1); s.renderOrder = 10;
+  // grandezza fissa sullo schermo: le scritte non diventano enormi quando ti avvicini
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthTest: false, sizeAttenuation: false }));
+  const h = forte ? 0.045 : 0.034; s.scale.set(h * c.width / c.height, h, 1); s.renderOrder = 10;
   return s;
 }
 function costruisciEtichette() {
   etichette.forEach((e) => scena.remove(e)); etichette = [];
   PAESI.forEach(([n, lo, la, forte]) => {
     const [x, z] = inXZ(lo, la), y = quotaIn(x, z) * esag;
-    const s = etichetta(n, forte); s.position.set(x, y + 4, z); scena.add(s); etichette.push(s);
-    const asta = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 4, 6), new THREE.MeshBasicMaterial({ color: forte ? 0xc0111f : 0x1d2733 }));
-    asta.position.set(x, y + 2, z); scena.add(asta); etichette.push(asta);
+    const s = etichetta(n, forte); s.center.set(0.5, 0); s.position.set(x, y + 0.6, z); scena.add(s); etichette.push(s);
+    const punto = new THREE.Mesh(new THREE.SphereGeometry(0.35, 12, 8), new THREE.MeshBasicMaterial({ color: forte ? 0xc0111f : 0x1d2733 }));
+    punto.position.set(x, y + 0.3, z); scena.add(punto); etichette.push(punto);
   });
 }
 
