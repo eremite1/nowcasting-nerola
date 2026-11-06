@@ -59,8 +59,50 @@ def campiona(campo, griglia, pp):
     return out
 
 
+# griglia comune della pagella unica (stessa di meteo-mappe/motore/verifica.py): 0,025 gradi sul Lazio, riga 0 = sud
+G_LON0, G_LAT0, G_PASSO, G_NX, G_NY = 11.30, 41.05, 0.025, 118, 86
+
+
+def su_griglia_comune(a, g):
+    """Pioggia oraria del radar sulla griglia comune (media dei pixel radar nella cella), mm x 10, 65535 = no dato."""
+    from scipy import ndimage
+    ok = np.isfinite(a)
+    k = 3
+    s = ndimage.uniform_filter(np.where(ok, a, 0.0), k, mode="constant")
+    n = ndimage.uniform_filter(ok.astype("float64"), k, mode="constant")
+    m = np.where(n > 0.5, s / np.maximum(n, 1e-9), np.nan)
+    lon = G_LON0 + G_PASSO * (np.arange(G_NX) + 0.5)
+    lat = G_LAT0 + G_PASSO * (np.arange(G_NY) + 0.5)
+    LO, LA = np.meshgrid(lon, lat)
+    c, r = g.indici(LO, LA)
+    c, r = np.round(c).astype(int), np.round(r).astype(int)
+    dentro = (r >= 0) & (r < a.shape[0]) & (c >= 0) & (c < a.shape[1])
+    v = np.full(LO.shape, np.nan)
+    v[dentro] = m[r[dentro], c[dentro]]
+    return np.where(np.isfinite(v), np.clip(np.round(v * 10), 0, 65534), 65535).astype("<u2")
+
+
+def archivio_orario(precedente, out, nuove, adesso):
+    """radar_orario.npz: le mappe orarie degli ultimi GIORNI giorni sulla griglia comune (per la pagella unica)."""
+    tutte = {}
+    vecchio = Path(precedente) / "radar_orario.npz" if precedente else None
+    if vecchio and vecchio.exists():
+        try:
+            z = np.load(vecchio)
+            tutte = {str(t): z["mm"][k] for k, t in enumerate(z["ore"])}
+        except Exception as e:  # noqa: BLE001
+            print("archivio orario precedente illeggibile:", e, file=sys.stderr)
+    tutte.update(nuove)
+    limite = iso_ora(adesso - timedelta(days=GIORNI))
+    ore = sorted(t for t in tutte if t >= limite)
+    if ore:
+        np.savez_compressed(Path(out) / "radar_orario.npz", ore=np.array(ore), mm=np.stack([tutte[t] for t in ore]))
+    return len(ore)
+
+
 def osservazioni(precedente, out, adesso):
     pp = punti()
+    griglie = {}
     righe, viste = [], set()
     vecchio = Path(precedente) / "radar_punti.csv" if precedente else None
     limite = iso_ora(adesso - timedelta(days=GIORNI))
@@ -71,9 +113,18 @@ def osservazioni(precedente, out, adesso):
                 viste.add(r["ora"])
     nuove = 0
     ultima = adesso.replace(minute=0, second=0, microsecond=0)
-    for k in range(ORE_INDIETRO):
+    # ore gia' nell'archivio orario sulla griglia comune; se l'archivio non c'e' ancora si recuperano 2 giorni
+    gia_griglia = set()
+    va = Path(precedente) / "radar_orario.npz" if precedente else None
+    if va and va.exists():
+        try:
+            gia_griglia = {str(x) for x in np.load(va)["ore"]}
+        except Exception:  # noqa: BLE001
+            pass
+    indietro = ORE_INDIETRO if gia_griglia else 48
+    for k in range(indietro):
         t = ultima - timedelta(hours=k)
-        if iso_ora(t) in viste:
+        if iso_ora(t) in viste and iso_ora(t) in gia_griglia:
             continue
         try:
             dati = fonti.scarica("SRT1", int(t.timestamp() * 1000))
@@ -88,8 +139,12 @@ def osservazioni(precedente, out, adesso):
         if np.nanmax(a) > 500:
             print(f"SRT1 {iso_ora(t)}: valori fuori scala, scartato", file=sys.stderr)
             continue
+        try:
+            griglie[iso_ora(t)] = su_griglia_comune(a, g)
+        except Exception as e:  # noqa: BLE001
+            print(f"SRT1 {iso_ora(t)}: griglia comune non fatta: {e}", file=sys.stderr)
         for (sid, la, lo), v in zip(pp, campiona(a, g, pp)):
-            if v is None:
+            if v is None or iso_ora(t) in viste:
                 continue
             righe.append({"id": sid, "nome": f"Radar {la:.2f}N {lo:.2f}E".replace(".", ","), "lat": la, "lon": lo,
                           "quota": "", "ora": iso_ora(t), "T": "", "Td": "", "V": "", "P": v})
@@ -100,6 +155,7 @@ def osservazioni(precedente, out, adesso):
         for r in sorted(righe, key=lambda r: (r["ora"], r["id"])):
             w.writerow(r)
     print(f"radar nei punti: {nuove} ore nuove, {len(righe)} righe, {len(pp)} punti")
+    print(f"radar orario sulla griglia comune: {archivio_orario(precedente, out, griglie, adesso)} ore")
 
 
 def previsioni_wrf(percorso, out):
@@ -143,6 +199,9 @@ def main():
         vecchio = Path(a.precedente) / "radar_punti.csv" if a.precedente else None
         if vecchio and vecchio.exists():
             (Path(a.out) / "radar_punti.csv").write_bytes(vecchio.read_bytes())
+        vo = Path(a.precedente) / "radar_orario.npz" if a.precedente else None
+        if vo and vo.exists():
+            (Path(a.out) / "radar_orario.npz").write_bytes(vo.read_bytes())
     if a.wrf and Path(a.wrf).exists():
         try:
             previsioni_wrf(a.wrf, a.out)
