@@ -1,5 +1,5 @@
 {
- "ora_scarico": "2026-11-07T10:57:01Z",
+ "ora_scarico": "2026-11-07T11:07:01Z",
  "SRI": {
   "primo_file": {
    "proiezione": "Trasversa di Mercatore lon0=12.5 lat0=42.0 k0=1.0",
@@ -14,7 +14,7 @@
    ],
    "metadati": "",
    "minimo": -9999.0,
-   "massimo": 40.45499801635742,
+   "massimo": 41.23999786376953,
    "validi": 1.0
   },
   "periodo_min": 5,
@@ -26,7 +26,7 @@
   ],
   "scaricati": 25,
   "chiesti": 25,
-  "ultimo": "2026-11-07T10:45Z",
+  "ultimo": "2026-11-07T10:55Z",
   "valori": [
    0.0,
    0.0,
@@ -80,7 +80,7 @@
    ],
    "metadati": "",
    "minimo": -9999.0,
-   "massimo": 0.4921262860298157,
+   "massimo": 0.0,
    "validi": 1.0
   },
   "periodo_min": 5,
@@ -92,7 +92,7 @@
   ],
   "scaricati": 7,
   "chiesti": 7,
-  "ultimo": "2026-11-07T10:50Z",
+  "ultimo": "2026-11-07T11:00Z",
   "valori": [
    0.0,
    0.0,
@@ -146,7 +146,7 @@
    ],
    "metadati": "",
    "minimo": -9999.0,
-   "massimo": 16.614999771118164,
+   "massimo": 16.729999542236328,
    "validi": 1.0
   },
   "periodo_min": 5,
@@ -158,11 +158,11 @@
   ],
   "scaricati": 1,
   "chiesti": 1,
-  "ultimo": "2026-11-07T10:50Z",
+  "ultimo": "2026-11-07T11:00Z",
   "valori": [
    0.0,
    0.0,
-   4.835000038146973
+   6.914999961853027
   ]
  },
  "CUM3": {
@@ -297,5 +297,5 @@
    45.366554260253906
   ]
  },
- "secondi": 35.7
+ "secondi": 35.4
 }
