@@ -157,6 +157,43 @@ def estrapola(campo0, u, v, passi):
     return uscite, valide
 
 
+def liscia_pm(campo, minuti, fattore):
+    """Toglie i dettagli piccoli che non si possono prevedere, tanto piu' quanto piu' lontana e' la scadenza
+    (sigma = fattore * radice dei minuti, in km = pixel), poi rimette ESATTAMENTE la stessa distribuzione di valori del
+    campo di partenza ("probability matching"): la pioggia non si allarga ne' si indebolisce, cambia solo la forma.
+    E' l'idea dei nowcasting professionali (S-PROG, Seed 2003): a lungo termine vince la parte prevedibile."""
+    if campo is None:
+        return None
+    c = np.asarray(campo, dtype="float64")
+    ok = np.isfinite(c)
+    if ok.sum() < 100:
+        return campo
+    sg = fattore * math.sqrt(max(minuti, 1))
+    num = ndimage.gaussian_filter(np.where(ok, c, 0.0), sg, mode="constant")
+    den = ndimage.gaussian_filter(ok.astype("float64"), sg, mode="constant")
+    sm = np.where(den > 1e-6, num / np.maximum(den, 1e-6), 0.0)
+    v = c[ok]
+    ordine = np.argsort(sm[ok], kind="stable")
+    nuovi = np.empty_like(v)
+    nuovi[ordine] = np.sort(v)
+    out = np.full(c.shape, np.nan)
+    out[ok] = nuovi
+    return np.where(ok, np.where(out >= SOGLIA, out, 0.0), np.nan).astype("float32")
+
+
+def miscela(a, b, f):
+    """(1-f)*a + f*b dove ci sono entrambi; altrimenti quello che c'e'."""
+    if a is None:
+        return b
+    if b is None or f <= 0:
+        return a
+    if f >= 1:
+        return b
+    a = np.asarray(a, dtype="float32")
+    b = np.asarray(b, dtype="float32")
+    return np.where(np.isfinite(a) & np.isfinite(b), (1 - f) * a + f * b, np.where(np.isfinite(a), a, b)).astype("float32")
+
+
 def correlazione(a, b, maschera):
     a = a[maschera]
     b = b[maschera]
@@ -305,6 +342,23 @@ def ponte_riempi(a):
         return np.nan_to_num(a)
     idx = ndimage.distance_transform_edt(~noto, return_distances=False, return_indices=True)
     return a[tuple(idx)]
+
+
+def _per_scadenza(metodi, mappa, minuti, k):
+    """Campo al passo k: vincitore della scadenza di gara precedente e di quella successiva, sfumati nel tempo
+    (cosi' la previsione non "salta" quando cambia il metodo)."""
+    sc = sorted(mappa)
+    if minuti <= sc[0]:
+        return metodi[mappa[sc[0]]](k)
+    if minuti >= sc[-1]:
+        return metodi[mappa[sc[-1]]](k)
+    for a, b in zip(sc[:-1], sc[1:]):
+        if a <= minuti <= b:
+            ma, mb = mappa[a], mappa[b]
+            if ma == mb:
+                return metodi[ma](k)
+            return miscela(metodi[ma](k), metodi[mb](k), (minuti - a) / (b - a))
+    return metodi[mappa[sc[-1]]](k)
 
 
 def calcola(radar, wrf_prev=None, ponte_fn=None, pagella=None, scelta=None):
@@ -617,11 +671,28 @@ def calcola(radar, wrf_prev=None, ponte_fn=None, pagella=None, scelta=None):
             metodi["wrf_totale"] = metodi["evoluzione"]
     except Exception as e:  # noqa: BLE001
         info["gara_errore"] = str(e)[:200]
+    # metodi nuovi (11/11/2026): l'evoluzione con la lisciatura crescente e la stessa quantita' di pioggia
+    metodi["evol_liscia"] = lambda k: liscia_pm(evol[k - 1], k * PASSO_MIN, 0.35)
+    metodi["evol_liscia_forte"] = lambda k: liscia_pm(evol[k - 1], k * PASSO_MIN, 0.7)
+    if "wrf_totale" in metodi and metodi["wrf_totale"] is not metodi["evoluzione"]:
+        metodi["totale_liscia"] = lambda k: liscia_pm(metodi["wrf_totale"](k), k * PASSO_MIN, 0.5)
+
     scelto, motivo = scelta if scelta else ("evoluzione", "metodo predefinito")
-    if scelto not in metodi:
+    per_scadenza = None
+    if isinstance(scelto, dict):
+        # il migliore a ogni scadenza (gara.migliori_per_scadenza): {minuti: metodo}
+        per_scadenza = {int(m): c for m, c in scelto.items() if c in metodi} or None
+        scelto = "per_scadenza" if per_scadenza else "evoluzione"
+        if not per_scadenza:
+            motivo = "metodi vincenti non disponibili adesso, uso il metodo predefinito"
+    if scelto not in metodi and scelto != "per_scadenza":
         motivo = f"'{scelto}' non disponibile adesso, uso il metodo predefinito"
         scelto = "evoluzione"
     info["metodo_pubblicato"] = {"chiave": scelto, "nome": gara_mod.METODI["pioggia"].get(scelto, (scelto,))[0], "motivo": motivo}
+    if per_scadenza:
+        info["metodo_pubblicato"]["nome"] = "Il migliore a ogni scadenza"
+        info["metodo_pubblicato"]["per_scadenza"] = {str(m): gara_mod.METODI["pioggia"].get(c, (c,))[0] for m, c in sorted(per_scadenza.items())}
+        metodi["per_scadenza"] = lambda k: _per_scadenza(metodi, per_scadenza, k * PASSO_MIN, k)
 
     # ---- 7. combinazione finale: l'evoluzione guidata dal WRF e' la previsione. Solo se le verifiche dei giorni scorsi
     #         dimostrano che a una certa scadenza la semplice estrapolazione del radar fa meglio, la si mescola (pesi
@@ -714,7 +785,9 @@ def main():
     scelta = None
     if a.precedente and _wrf_totale("scelta_automatica"):
         import gara as gara_mod
-        scelta = gara_mod.migliore(a.precedente, "pioggia", "evoluzione")
+        scelta = gara_mod.migliori_per_scadenza(a.precedente, "pioggia", "evoluzione")
+        if scelta is None:
+            scelta = gara_mod.migliore(a.precedente, "pioggia", "evoluzione")
     ris = calcola(radar, wrf_prev, ponte_fn, pagella, scelta)
     with open(a.out, "wb") as f:
         pickle.dump(ris, f)

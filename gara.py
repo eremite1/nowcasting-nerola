@@ -51,6 +51,10 @@ METODI = {
         "sfumata_1h": ("Dal radar al WRF in 1 ora", "all'inizio quasi tutto radar, dopo un'ora già più WRF che radar"),
         "sfumata_3h": ("Dal radar al WRF in 3 ore", "come sopra ma il passaggio al WRF è più lento"),
         "pesi_ottimali": ("Pesi calcolati oggi", "il peso tra radar e WRF dipende da quanto ciascuno ci sta prendendo oggi"),
+        "evol_liscia": ("Evoluzione senza dettagli imprevedibili", "come «Radar che evolve col WRF», ma più passa il tempo più sfuma i dettagli piccoli, con la stessa quantità di pioggia"),
+        "evol_liscia_forte": ("Evoluzione molto sfumata", "come sopra, sfumando di più"),
+        "totale_liscia": ("Guidato dal WRF, sfumato", "«Radar guidato tutto dal WRF» con la sfumatura dei dettagli piccoli"),
+        "per_scadenza": ("Il migliore a ogni scadenza", "a ogni scadenza si usa il metodo che sta vincendo a quella scadenza"),
     },
     "nubi": {
         "pubblicata": ("Quella pubblicata", "la previsione delle nubi che si vede sulla pagina"),
@@ -329,6 +333,36 @@ def migliore(precedente, tipo="pioggia", predefinito="evoluzione"):
     if vinc["voto_medio"] >= base["voto_medio"] + MARGINE:
         return vinc["chiave"], f"{vinc['voto_medio']}% contro {base['voto_medio']}% del metodo predefinito"
     return predefinito, f"nessun metodo batte il predefinito di almeno {MARGINE:g} punti"
+
+
+def migliori_per_scadenza(precedente, tipo="pioggia", predefinito="evoluzione"):
+    """Per ogni scadenza, il metodo con il voto piu' alto negli ultimi 14 giorni (se batte il predefinito di almeno
+    1 punto a quella scadenza e ha abbastanza casi). Ritorna ({minuti: metodo}, motivo) oppure None."""
+    try:
+        g = json.loads(Path(precedente, "gara.json").read_text())
+        righe = g["periodi"]["14"][tipo]["metodi"]
+    except Exception:  # noqa: BLE001
+        return None
+    base = next((r for r in righe if r["chiave"] == predefinito), None)
+    if base is None:
+        return None
+    mappa, cambi = {}, []
+    for sc in SCADENZE:
+        s = str(sc)
+        vb = (base["scadenze"].get(s) or {}).get("voto")
+        migliore, voto = predefinito, vb if vb is not None else -1
+        for r in righe:
+            if r["chiave"] in ("pubblicata", "persistenza", "per_scadenza", predefinito):
+                continue
+            x = r["scadenze"].get(s) or {}
+            if x.get("casi", 0) >= CASI_MINIMI // len(SCADENZE) and x.get("voto") is not None and x["voto"] >= voto + 1:
+                migliore, voto = r["chiave"], x["voto"]
+        mappa[sc] = migliore
+        if migliore != predefinito:
+            cambi.append(f"+{sc} min: {METODI[tipo].get(migliore, (migliore,))[0]} {voto}% (contro {vb}%)")
+    if not cambi:
+        return None
+    return mappa, "il migliore a ogni scadenza: " + "; ".join(cambi)
 
 
 # --------------------------------------------------------------------------------------------- nubi (satellite)
