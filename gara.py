@@ -38,7 +38,7 @@ GIORNI_STORICO = 30
 # chiave -> (nome breve, spiegazione). L'ordine e' quello della tabella sulla pagina.
 METODI = {
     "pioggia": {
-        "pubblicata": ("Quella pubblicata", "la previsione che si vede sulla pagina"),
+        "pubblicata": ("Quella sul radar", "la previsione che si vede sulla mappa radar: a ogni scadenza usa il metodo che sta vincendo"),
         "persistenza": ("Tutto fermo", "la pioggia resta dov'è adesso (il termine di paragone più banale)"),
         "traslazione": ("Solo spostamento", "tutta la pioggia scivola insieme, alla velocità media misurata sul radar"),
         "estrapolazione": ("Spostamento a due scale", "celle e fronte si muovono ognuno come misurato sul radar, le celle si attenuano"),
@@ -336,8 +336,7 @@ def migliore(precedente, tipo="pioggia", predefinito="evoluzione"):
 
 
 def migliori_per_scadenza(precedente, tipo="pioggia", predefinito="evoluzione"):
-    """Per ogni scadenza, il metodo con il voto piu' alto negli ultimi 14 giorni (se batte il predefinito di almeno
-    1 punto a quella scadenza e ha abbastanza casi). Ritorna ({minuti: metodo}, motivo) oppure None."""
+    """Per ogni scadenza, il metodo con il voto piu' alto negli ultimi 14 giorni (con abbastanza casi). Ritorna ({minuti: metodo}, motivo) oppure None."""
     try:
         g = json.loads(Path(precedente, "gara.json").read_text())
         righe = g["periodi"]["14"][tipo]["metodi"]
@@ -355,7 +354,7 @@ def migliori_per_scadenza(precedente, tipo="pioggia", predefinito="evoluzione"):
             if r["chiave"] in ("pubblicata", "persistenza", "per_scadenza", predefinito):
                 continue
             x = r["scadenze"].get(s) or {}
-            if x.get("casi", 0) >= CASI_MINIMI // len(SCADENZE) and x.get("voto") is not None and x["voto"] >= voto + 1:
+            if x.get("casi", 0) >= CASI_MINIMI // len(SCADENZE) and x.get("voto") is not None and x["voto"] > voto:
                 migliore, voto = r["chiave"], x["voto"]
         mappa[sc] = migliore
         if migliore != predefinito:
