@@ -1,18 +1,18 @@
 {
- "aggiornata": "2026-11-14T12:05Z",
- "nuovi_confronti": 1,
+ "aggiornata": "2026-11-14T12:20Z",
+ "nuovi_confronti": 7,
  "periodi": {
   "7": {
    "30": {
     "1": {
      "nowcast": 28,
      "persistenza": 21,
-     "casi": 837
+     "casi": 839
     },
     "5": {
      "nowcast": 21,
      "persistenza": 13,
-     "casi": 445
+     "casi": 447
     }
    },
    "60": {
@@ -24,31 +24,31 @@
     "5": {
      "nowcast": 11,
      "persistenza": 7,
-     "casi": 454
+     "casi": 455
     }
    },
    "120": {
     "1": {
      "nowcast": 11,
      "persistenza": 10,
-     "casi": 853
+     "casi": 855
     },
     "5": {
      "nowcast": 5,
      "persistenza": 4,
-     "casi": 472
+     "casi": 474
     }
    },
    "180": {
     "1": {
      "nowcast": 8,
      "persistenza": 9,
-     "casi": 859
+     "casi": 860
     },
     "5": {
      "nowcast": 3,
      "persistenza": 3,
-     "casi": 464
+     "casi": 466
     }
    }
   },
@@ -57,48 +57,48 @@
     "1": {
      "nowcast": 35,
      "persistenza": 28,
-     "casi": 1895
+     "casi": 1897
     },
     "5": {
      "nowcast": 24,
      "persistenza": 19,
-     "casi": 1226
+     "casi": 1228
     }
    },
    "60": {
     "1": {
      "nowcast": 23,
      "persistenza": 19,
-     "casi": 1915
+     "casi": 1916
     },
     "5": {
      "nowcast": 13,
      "persistenza": 11,
-     "casi": 1252
+     "casi": 1253
     }
    },
    "120": {
     "1": {
      "nowcast": 15,
      "persistenza": 13,
-     "casi": 1921
+     "casi": 1923
     },
     "5": {
      "nowcast": 6,
      "persistenza": 6,
-     "casi": 1293
+     "casi": 1295
     }
    },
    "180": {
     "1": {
      "nowcast": 12,
      "persistenza": 10,
-     "casi": 1939
+     "casi": 1941
     },
     "5": {
      "nowcast": 4,
      "persistenza": 4,
-     "casi": 1298
+     "casi": 1300
     }
    }
   }
