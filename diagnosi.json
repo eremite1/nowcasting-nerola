@@ -1,5 +1,5 @@
 {
- "ora_scarico": "2026-11-14T12:07:01Z",
+ "ora_scarico": "2026-11-14T12:17:01Z",
  "SRI": {
   "primo_file": {
    "proiezione": "Trasversa di Mercatore lon0=12.5 lat0=42.0 k0=1.0",
@@ -14,7 +14,7 @@
    ],
    "metadati": "",
    "minimo": -9999.0,
-   "massimo": 55.60499954223633,
+   "massimo": 62.07499694824219,
    "validi": 1.0
   },
   "periodo_min": 5,
@@ -26,7 +26,7 @@
   ],
   "scaricati": 25,
   "chiesti": 25,
-  "ultimo": "2026-11-14T12:00Z",
+  "ultimo": "2026-11-14T12:05Z",
   "valori": [
    0.0,
    0.0,
@@ -80,7 +80,7 @@
    ],
    "metadati": "",
    "minimo": -9999.0,
-   "massimo": 0.4409451484680176,
+   "massimo": 0.4921262860298157,
    "validi": 1.0
   },
   "periodo_min": 5,
@@ -92,7 +92,7 @@
   ],
   "scaricati": 7,
   "chiesti": 7,
-  "ultimo": "2026-11-14T12:00Z",
+  "ultimo": "2026-11-14T12:10Z",
   "valori": [
    0.0,
    0.0,
@@ -146,7 +146,7 @@
    ],
    "metadati": "",
    "minimo": -9999.0,
-   "massimo": 21.024999618530273,
+   "massimo": 22.09000015258789,
    "validi": 1.0
   },
   "periodo_min": 5,
@@ -158,11 +158,11 @@
   ],
   "scaricati": 1,
   "chiesti": 1,
-  "ultimo": "2026-11-14T12:00Z",
+  "ultimo": "2026-11-14T12:05Z",
   "valori": [
    0.0,
    0.0,
-   3.9549999237060547
+   4.339999675750732
   ]
  },
  "CUM3": {
@@ -180,7 +180,7 @@
    "metadati": "",
    "minimo": 0.0,
    "massimo": 32.5099983215332,
-   "validi": 0.6172537108705237
+   "validi": 0.6173789034221112
   },
   "periodo_min": 30,
   "ritaglio": [
@@ -213,7 +213,7 @@
    "metadati": "",
    "minimo": 0.0,
    "massimo": 33.15999984741211,
-   "validi": 0.6178875359626188
+   "validi": 0.6180127285142063
   },
   "periodo_min": 30,
   "ritaglio": [
@@ -246,7 +246,7 @@
    "metadati": "",
    "minimo": 0.0,
    "massimo": 33.744998931884766,
-   "validi": 0.6182631136173813
+   "validi": 0.6183786294500055
   },
   "periodo_min": 30,
   "ritaglio": [
@@ -279,7 +279,7 @@
    "metadati": "",
    "minimo": 0.0,
    "massimo": 87.99330139160156,
-   "validi": 0.6182631136173813
+   "validi": 0.6183786294500055
   },
   "periodo_min": 30,
   "ritaglio": [
@@ -297,5 +297,5 @@
    87.99330139160156
   ]
  },
- "secondi": 29.4
+ "secondi": 29.6
 }
