@@ -1,0 +1,301 @@
+{
+ "ora_scarico": "2026-11-14T11:37:33Z",
+ "SRI": {
+  "primo_file": {
+   "proiezione": "Trasversa di Mercatore lon0=12.5 lat0=42.0 k0=1.0",
+   "nodata": null,
+   "forma": [
+    1400,
+    1200
+   ],
+   "passo": [
+    1000.0,
+    1000.0
+   ],
+   "metadati": "",
+   "minimo": -9999.0,
+   "massimo": 51.25,
+   "validi": 1.0
+  },
+  "periodo_min": 5,
+  "ritaglio": [
+   258,
+   1008,
+   232,
+   1011
+  ],
+  "scaricati": 25,
+  "chiesti": 25,
+  "ultimo": "2026-11-14T11:30Z",
+  "valori": [
+   0.0,
+   0.0,
+   51.25
+  ]
+ },
+ "IR_108": {
+  "primo_file": {
+   "proiezione": "Trasversa di Mercatore lon0=12.5 lat0=42.0 k0=1.0",
+   "nodata": null,
+   "forma": [
+    1400,
+    1200
+   ],
+   "passo": [
+    1000.0,
+    1000.0
+   ],
+   "metadati": "",
+   "minimo": -43.5,
+   "massimo": 19.5,
+   "validi": 1.0
+  },
+  "periodo_min": 5,
+  "ritaglio": [
+   432,
+   842,
+   418,
+   833
+  ],
+  "scaricati": 31,
+  "chiesti": 31,
+  "ultimo": "2026-10-30T00:20Z",
+  "valori": [
+   -32.0,
+   8.5,
+   18.5
+  ]
+ },
+ "POH": {
+  "primo_file": {
+   "proiezione": "Trasversa di Mercatore lon0=12.5 lat0=42.0 k0=1.0",
+   "nodata": null,
+   "forma": [
+    1400,
+    1200
+   ],
+   "passo": [
+    1000.0,
+    1000.0
+   ],
+   "metadati": "",
+   "minimo": -9999.0,
+   "massimo": 0.5787404775619507,
+   "validi": 1.0
+  },
+  "periodo_min": 5,
+  "ritaglio": [
+   432,
+   842,
+   418,
+   833
+  ],
+  "scaricati": 7,
+  "chiesti": 7,
+  "ultimo": "2026-11-14T11:30Z",
+  "valori": [
+   0.0,
+   0.0,
+   0.0
+  ]
+ },
+ "TEMP": {
+  "primo_file": {
+   "proiezione": "geografica (lon/lat)",
+   "nodata": null,
+   "forma": [
+    576,
+    631
+   ],
+   "passo": [
+    0.019983009747110096,
+    0.019983009747110096
+   ],
+   "metadati": "",
+   "minimo": -99999.0,
+   "massimo": 29.146469116210938,
+   "validi": 1.0
+  },
+  "periodo_min": 60,
+  "ritaglio": [
+   177,
+   363,
+   217,
+   463
+  ],
+  "scaricati": 1,
+  "chiesti": 1,
+  "ultimo": "2026-11-14T11:00Z",
+  "valori": [
+   -9.361722946166992,
+   0.0,
+   23.116165161132812
+  ]
+ },
+ "SRT1": {
+  "primo_file": {
+   "proiezione": "Trasversa di Mercatore lon0=12.5 lat0=42.0 k0=1.0",
+   "nodata": null,
+   "forma": [
+    1400,
+    1200
+   ],
+   "passo": [
+    1000.0,
+    1000.0
+   ],
+   "metadati": "",
+   "minimo": -9999.0,
+   "massimo": 17.709999084472656,
+   "validi": 1.0
+  },
+  "periodo_min": 5,
+  "ritaglio": [
+   432,
+   842,
+   418,
+   833
+  ],
+  "scaricati": 1,
+  "chiesti": 1,
+  "ultimo": "2026-11-14T11:30Z",
+  "valori": [
+   0.0,
+   0.0,
+   0.75
+  ]
+ },
+ "CUM3": {
+  "primo_file": {
+   "proiezione": "geografica (lon/lat)",
+   "nodata": -9999.0,
+   "forma": [
+    1233,
+    1341
+   ],
+   "passo": [
+    0.01,
+    0.01
+   ],
+   "metadati": "",
+   "minimo": 0.0,
+   "massimo": 32.5099983215332,
+   "validi": 0.6172537108705237
+  },
+  "periodo_min": 30,
+  "ritaglio": [
+   365,
+   731,
+   477,
+   963
+  ],
+  "scaricati": 1,
+  "chiesti": 1,
+  "ultimo": "2026-11-14T11:00Z",
+  "valori": [
+   0.0,
+   0.0,
+   3.600299835205078
+  ]
+ },
+ "CUM6": {
+  "primo_file": {
+   "proiezione": "geografica (lon/lat)",
+   "nodata": -9999.0,
+   "forma": [
+    1233,
+    1341
+   ],
+   "passo": [
+    0.01,
+    0.01
+   ],
+   "metadati": "",
+   "minimo": 0.0,
+   "massimo": 33.54999923706055,
+   "validi": 0.6177018639175108
+  },
+  "periodo_min": 30,
+  "ritaglio": [
+   365,
+   731,
+   477,
+   963
+  ],
+  "scaricati": 1,
+  "chiesti": 1,
+  "ultimo": "2026-11-14T11:00Z",
+  "valori": [
+   0.0,
+   0.0,
+   8.400599479675293
+  ]
+ },
+ "CUM12": {
+  "primo_file": {
+   "proiezione": "geografica (lon/lat)",
+   "nodata": -9999.0,
+   "forma": [
+    1233,
+    1341
+   ],
+   "passo": [
+    0.01,
+    0.01
+   ],
+   "metadati": "",
+   "minimo": 0.0,
+   "massimo": 33.755001068115234,
+   "validi": 0.6180199860534288
+  },
+  "periodo_min": 30,
+  "ritaglio": [
+   365,
+   731,
+   477,
+   963
+  ],
+  "scaricati": 1,
+  "chiesti": 1,
+  "ultimo": "2026-11-14T11:00Z",
+  "valori": [
+   0.0,
+   0.0,
+   18.30118179321289
+  ]
+ },
+ "CUM24": {
+  "primo_file": {
+   "proiezione": "geografica (lon/lat)",
+   "nodata": -9999.0,
+   "forma": [
+    1233,
+    1341
+   ],
+   "passo": [
+    0.01,
+    0.01
+   ],
+   "metadati": "",
+   "minimo": 0.0,
+   "massimo": 91.99240112304688,
+   "validi": 0.6180199860534288
+  },
+  "periodo_min": 30,
+  "ritaglio": [
+   365,
+   731,
+   477,
+   963
+  ],
+  "scaricati": 1,
+  "chiesti": 1,
+  "ultimo": "2026-11-14T11:00Z",
+  "valori": [
+   0.0,
+   1.09568452835083,
+   91.99240112304688
+  ]
+ },
+ "secondi": 29.9
+}
