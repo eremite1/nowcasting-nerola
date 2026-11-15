@@ -14,6 +14,7 @@ Tutti i livelli di una zona hanno le stesse dimensioni in pixel: la pagina li so
 """
 import argparse
 import json
+import shutil
 import math
 import os
 import pickle
@@ -40,7 +41,12 @@ NEROLA = (42.1607, 12.7856)
 AREE = {
     "lazio": {"nome": "Lazio", "riquadro": (11.30, 14.25, 41.05, 43.20), "larghezza": 860, "dettaglio": False},
     "sabina": {"nome": "Sabina", "riquadro": (12.34, 13.20, 41.81, 42.45), "larghezza": 860, "dettaglio": True},
+    # tutta Italia: solo radar osservato e pioggia caduta (niente previsione e niente satellite elaborato);
+    # fondo e confini sono immagini fisse in statici/italia (fatte una volta con fondo_italia.py)
+    "italia": {"nome": "Italia", "riquadro": (6.5, 18.8, 36.5, 47.1), "larghezza": 900, "dettaglio": False, "solo_osservato": True},
 }
+# zone con la previsione e il satellite elaborato
+ZONE_COMPLETE = [k for k, c in AREE.items() if not c.get("solo_osservato")]
 # Classi di intensita' della pioggia (mm/h) e colori: scala "da radar" a gradini netti e colori pieni (nessuna
 # trasparenza, nessuna sfumatura): azzurri e blu per la pioggia debole, verdi per la moderata, gialli e arancio per la
 # forte, rossi per la molto forte, rosa e viola per i nubifragi e la grandine. Ogni gradino si distingue a colpo d'occhio.
@@ -576,26 +582,44 @@ def main():
     indice["accumuli"] = {"scala": [[s_, c_] for s_, c_ in zip(SOGLIE_ACC, COLORI_ACC)], "prodotti": []}
     with open(f"{a.dati}/tipo.pkl", "wb") as f:
         pickle.dump({"nerola": tipo_nerola, "grandine": indice["grandine"], **extra}, f)
+    statici = Path(__file__).resolve().parent / "statici"
     for chiave, cfg in AREE.items():
         z = Zona(chiave, cfg)
         cart = out / chiave
+        solo_oss = bool(cfg.get("solo_osservato"))
+        rz = radar
+        if solo_oss:
+            try:
+                with open(f"{a.dati}/radar_italia.pkl", "rb") as f:
+                    rz = pickle.load(f)
+            except Exception as e:  # noqa: BLE001
+                print(f"ATTENZIONE: zona {chiave} saltata (radar nazionale non disponibile: {e})", file=sys.stderr)
+                continue
+            if not (statici / chiave / "mappa_grigia.jpg").exists():
+                print(f"ATTENZIONE: zona {chiave} saltata (manca il fondo in statici/{chiave})", file=sys.stderr)
+                continue
         for sotto in ("radar", "previsione"):
             (cart / sotto).mkdir(parents=True, exist_ok=True)
-        fondo(z, dem, cart / "mappa.jpg")
-        fondo_grigio(cart / "mappa.jpg", cart / "mappa_grigia.jpg")
-        confini(z, sf, cart / "confini.png", massimo=45 if z.dettaglio else 20)
-        confini(z, sf, cart / "confini_bianchi.png", massimo=45 if z.dettaglio else 20, scuro=True)
+        if solo_oss:
+            for n_ in ("mappa.jpg", "mappa_grigia.jpg", "confini.png", "confini_bianchi.png"):
+                if (statici / chiave / n_).exists():
+                    shutil.copy2(statici / chiave / n_, cart / n_)
+        else:
+            fondo(z, dem, cart / "mappa.jpg")
+            fondo_grigio(cart / "mappa.jpg", cart / "mappa_grigia.jpg")
+            confini(z, sf, cart / "confini.png", massimo=45 if z.dettaglio else 20)
+            confini(z, sf, cart / "confini_bianchi.png", massimo=45 if z.dettaglio else 20, scuro=True)
         voce = {"nome": z.nome, "larghezza": z.W, "altezza": z.H, "riquadro": [z.lon0, z.lon1, z.lat0, z.lat1],
-                "radar": [], "previsione": []}
-        mappa = z.mappa_da(radar["griglia"])
-        tipo_px = ricampiona_tipo(tipo_oss, mappa)
+                "radar": [], "previsione": [], "solo_osservato": solo_oss}
+        mappa = z.mappa_da(rz["griglia"])
+        tipo_px = None if solo_oss else ricampiona_tipo(tipo_oss, mappa)
         try:
-            gr_px = mappa_grandine(gr, z.mappa_da, tipo_mod.SOGLIA_GRANDINE)
+            gr_px = {} if solo_oss else mappa_grandine(gr, z.mappa_da, tipo_mod.SOGLIA_GRANDINE)
         except Exception as e:  # noqa: BLE001
             gr_px = {}
             print("ATTENZIONE: zone di grandine non disegnate:", e, file=sys.stderr)
         gr_tempi = sorted(gr_px)
-        for t, campo in zip(radar["tempi"], radar["campi"]):
+        for t, campo in zip(rz["tempi"], rz["campi"]):
             if t > t0:
                 continue
             f = nome_file(t)
@@ -610,7 +634,7 @@ def main():
             voce["radar"].append({"file": f"radar/{f}", "ora": t})
         mappa_nc = z.mappa_da(nc["griglia"])
         for k, (t, campo) in enumerate(zip(nc["tempi"], nc["campi"])):
-            if k == 0:
+            if k == 0 or solo_oss:
                 continue
             f = nome_file(t)
             tk = tipi.get(t)
@@ -618,6 +642,8 @@ def main():
             voce["previsione"].append({"file": f"previsione/{f}", "ora": t, "minuti": k * 10, "peso_radar": nc["pesi"][k]})
         for tipo_acc, ore_acc in ACCUMULI:
             d = acc.get(tipo_acc)
+            if d and solo_oss:
+                d = d.get("italia")
             if not d:
                 continue
             (cart / "accumuli").mkdir(exist_ok=True)

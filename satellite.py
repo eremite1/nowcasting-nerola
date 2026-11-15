@@ -67,11 +67,19 @@ STRATI = {
     # infrarosso su una zona molto piu' grande (circa 2 km per pixel), solo per la previsione: le nubi che nelle
     # prossime 6 ore entreranno nella mappa adesso sono FUORI dalla mappa, e vanno viste per poterle far entrare
     "largo": ("mtg_fd:ir105_hrfi", "mtg_fd:mtg_fd_ir105_hrfi_grayscale", 0, False),
+    # tutta Italia (circa 1,2 km per pixel): visibile, infrarosso, colori reali e fulmini per la zona "Italia"
+    "it_ir": ("mtg_fd:ir105_hrfi", "mtg_fd:mtg_fd_ir105_hrfi_grayscale", 1.6, False),
+    "it_vis": ("mtg_fd:vis06_hrfi", "", 1.2, True),
+    "it_geo": ("mtg_fd:rgb_geocolour", "", 1.6, False),
+    "it_lampi": ("mtg_fd:li_afa", "", 0, False),
 }
 BBOX_LARGO = (BBOX[0] - 2.6, BBOX[1] + 2.6, BBOX[2] - 2.0, BBOX[3] + 2.0)
 LARGHEZZA_LARGO = 400
 ALTEZZA_LARGO = int(round(LARGHEZZA_LARGO * (BBOX_LARGO[3] - BBOX_LARGO[2]) / (BBOX_LARGO[1] - BBOX_LARGO[0])
                           / math.cos(math.radians(42.1))))
+BBOX_IT = (6.5, 18.8, 36.5, 47.1)           # = zona "italia" di disegna.py
+LARGHEZZA_IT = 900
+ALTEZZA_IT = int(round(LARGHEZZA_IT * (BBOX_IT[3] - BBOX_IT[2]) / (BBOX_IT[1] - BBOX_IT[0]) / math.cos(math.radians(41.8))))
 # prodotti "per esperti" (oltre alla mappa con le nubi, che e' il prodotto principale)
 PRODOTTI = [("visibile", "Visibile HD"), ("colori", "Colori reali"), ("infrarosso", "Infrarosso"), ("topnubi", "Top nubi")]
 # cambiando VERSIONE tutte le immagini vengono ridisegnate (serve quando cambia lo stile)
@@ -123,7 +131,8 @@ def coseno_zenitale(t, lon, lat):
 
 def scarica_uno(nome, t, cartella):
     strato, stile, _, _ = STRATI[nome]
-    bb, lg, al = (BBOX_LARGO, LARGHEZZA_LARGO, ALTEZZA_LARGO) if nome == "largo" else (BBOX, LARGHEZZA, ALTEZZA)
+    bb, lg, al = (BBOX_LARGO, LARGHEZZA_LARGO, ALTEZZA_LARGO) if nome == "largo" else \
+        (BBOX_IT, LARGHEZZA_IT, ALTEZZA_IT) if nome.startswith("it_") else (BBOX, LARGHEZZA, ALTEZZA)
     url = (f"{WMS}?service=WMS&version=1.3.0&request=GetMap&layers={strato}&styles={stile}&crs=EPSG:4326"
            f"&bbox={bb[2]},{bb[0]},{bb[3]},{bb[1]}&width={lg}&height={al}"
            f"&format=image/png&transparent=true&time={t:%Y-%m-%dT%H:%M}:00Z")
@@ -192,11 +201,11 @@ def leggi(cache, nome, t):
     if not f.exists():
         return None
     im = Image.open(f)
-    if nome == "lampi":
+    if nome.endswith("lampi"):
         return np.asarray(im.convert("RGBA"), dtype="float32") / 255.0
     rgba = np.asarray(im.convert("RGBA"), dtype="float32") / 255.0
     trasparente = rgba[..., 3] < 0.5
-    if nome == "geo":
+    if nome.endswith("geo"):
         a = rgba[..., :3].copy()
         a[trasparente] = np.nan
         return a
@@ -390,6 +399,51 @@ def campi_zona(cache, t, tab, mappa_b, z, pk):
     return {"T": T, "vis": vis, "cosz": cosz, "alfa": alfa, "lum": lum}
 
 
+def italia_sat(cache, disponibili, tab, out, prec, indice):
+    z = disegna.Zona("italia", disegna.AREE["italia"])
+    cart = out / "italia" / "sat"
+    cart.mkdir(parents=True, exist_ok=True)
+    mx = ((z.lon - BBOX_IT[0]) / (BBOX_IT[1] - BBOX_IT[0]) * LARGHEZZA_IT - 0.5).astype("float32")
+    my = ((BBOX_IT[3] - z.lat) / (BBOX_IT[3] - BBOX_IT[2]) * ALTEZZA_IT - 0.5).astype("float32")
+    mappa_b = (mx, my)
+    voce = {"nubi": [], "nubiprev": [], "esperti": {p: [] for p, _ in PRODOTTI}}
+    fatti = 0
+    for t in disponibili.get("it_ir", []):
+        nomi = {p: f"{p}_{VERSIONE}_{t:%Y%m%d_%H%M}.jpg" for p, _ in PRODOTTI}
+        gia = prec and all((prec / "italia" / "sat" / n).exists() for n in nomi.values())
+        if gia:
+            for n in nomi.values():
+                shutil.copy2(prec / "italia" / "sat" / n, cart / n)
+        else:
+            g = leggi(cache, "it_ir", t)
+            if g is None:
+                continue
+            T = a_temp(disegna.ricampiona(sfuma(g, 1.0), mappa_b), tab)
+            cosz = coseno_zenitale(t, z.lon, z.lat)
+            irg = np.clip((35.0 - T) / 105.0, 0, 1) ** 0.9
+            v = leggi(cache, "it_vis", t)
+            if v is not None:
+                vis = disegna.ricampiona(v, mappa_b)
+                w = giorno(cosz)
+                gv = w * np.clip((riflettanza(vis, cosz) - 0.10) / 0.72, 0, 1) ** 0.8 + (1 - w) * irg
+            else:
+                gv = irg
+            gv = np.nan_to_num(gv)
+            jpeg(np.repeat(gv[..., None], 3, axis=-1), cart / nomi["visibile"])
+            jpeg(np.repeat(np.nan_to_num(irg)[..., None], 3, axis=-1), cart / nomi["infrarosso"])
+            jpeg(scala_topnubi(T), cart / nomi["topnubi"])
+            geo = leggi(cache, "it_geo", t)
+            if geo is not None:
+                geo = np.stack([disegna.ricampiona(geo[..., c], mappa_b) for c in range(3)], axis=-1)
+                jpeg(np.nan_to_num(geo), cart / nomi["colori"])
+            fatti += 1
+        for p, _ in PRODOTTI:
+            if (cart / nomi[p]).exists():
+                voce["esperti"][p].append({"file": f"sat/{nomi[p]}", "ora": iso(t)})
+    indice["zone"]["italia"] = voce
+    print(f"Italia: satellite {len(disponibili.get('it_ir', []))} istanti, disegnati ora {fatti}")
+
+
 def campi_larghi(cache, seq, mezza, tab, lon_m, lat_m):
     """Nubi sulla zona grande (solo infrarosso, circa 2 km) per gli istanti della previsione. Dentro la mappa si usano
     le nubi vere della mappa (visibile + infrarosso); fuori, quelle dell'infrarosso rese simili (stessa distribuzione)
@@ -502,10 +556,23 @@ def main():
             fl["ora"] = iso(t)
             fl["t"] = t
             fulmini.append(fl)
+    for t in disponibili.get("it_lampi", []):
+        im = leggi(cache, "it_lampi", t)
+        if im is None:
+            continue
+        try:
+            for fl in riassunto.fulmini_da_immagine(im, BBOX_IT, LARGHEZZA_IT, ALTEZZA_IT):
+                if BBOX[0] <= fl["lon"] <= BBOX[1] and BBOX[2] <= fl["lat"] <= BBOX[3]:
+                    continue          # nel Lazio si usano quelli piu' precisi
+                fl["ora"] = iso(t)
+                fl["t"] = t
+                fulmini.append(fl)
+        except Exception as e:  # noqa: BLE001
+            print("ATTENZIONE: fulmini sull'Italia non letti:", e, file=sys.stderr)
     indice["fulmini"] = [{k: v for k, v in fl.items() if k != "t"} for fl in fulmini]
 
     # ---- immagini osservate, zona per zona
-    zone = {k: disegna.Zona(k, c) for k, c in disegna.AREE.items()}
+    zone = {k: disegna.Zona(k, c) for k, c in disegna.AREE.items() if k in disegna.ZONE_COMPLETE}
     mezza = {}      # Lazio a meta' definizione: istante -> (alfa, lum), per la previsione delle nubi
     copertura_oss = {}
     for chiave, z in zone.items():
@@ -564,6 +631,12 @@ def main():
                     voce["esperti"][p].append({"file": f"sat/{nomi[p]}", "ora": iso(t)})
         indice["zone"][chiave] = voce
         print(f"{z.nome}: satellite {len(istanti)} istanti, disegnati ora {fatti}")
+
+    # ---- tutta Italia: visibile HD, colori reali, infrarosso e top nubi (solo osservati)
+    try:
+        italia_sat(cache, disponibili, tab, out, prec, indice)
+    except Exception as e:  # noqa: BLE001
+        print("ATTENZIONE: satellite sull'Italia non disegnato:", e, file=sys.stderr)
 
     # ---- previsione delle nubi (fino a +6 ore da adesso)
     zl = zone["lazio"]

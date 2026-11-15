@@ -1,0 +1,23 @@
+name: "Fondo della zona Italia"
+run-name: "Fondo fisso della zona Italia (una volta sola)"
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  fondo:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Programmi
+        run: pip install --quiet cartopy matplotlib numpy opencv-python-headless pillow scipy
+      - name: Disegno il fondo
+        run: python3 fondo_italia.py
+      - name: Salvo nel repository
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add statici/italia
+          git commit -q -m "Fondo fisso della zona Italia" || echo "niente di nuovo"
+          for i in 1 2 3; do git pull -q --rebase && git push -q && break; sleep 5; done
