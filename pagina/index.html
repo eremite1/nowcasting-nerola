@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Satellite e radar Nerola</title>
+<title>Radar e satellite · Meteo Nerola</title>
 <script type="importmap">{"imports": {"three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
 <meta name="description" content="Satellite ad alta definizione, radar e previsione della pioggia e delle nubi per le prossime 6 ore su Nerola, Sabina e Lazio.">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
@@ -29,8 +29,26 @@
   .sotto { color: var(--muto); font-size: .8rem; margin-left: auto; }
   main { max-width: 1280px; margin: 0 auto; padding: 14px 16px 28px; display: grid; gap: 14px; }
   .card { background: var(--card); border: 1px solid var(--linea); border-radius: 14px; padding: 14px; }
-  /* ---- NEROLA ADESSO (riquadro principale) */
-  #adesso { position: relative; overflow: hidden; border-radius: 20px; color: #fff; padding: 22px 22px 18px; isolation: isolate;
+  /* ---- VISORE RADAR E SATELLITE */
+  #sez-radar { background: #0f1823; color: #e8eef5; border-color: #1f2c3b; box-shadow: 0 12px 34px rgba(5,15,30,.28); }
+  #sez-radar h2 { color: #fff; }
+  #sez-radar .gruppo button, #sez-radar .barra button { background: #182433; color: #dbe5ef; border-color: #2a3a4d; }
+  #sez-radar .gruppo button[aria-pressed="true"] { background: #2f8cf0; color: #fff; border-color: #2f8cf0; }
+  #sez-radar .gruppo button:disabled { opacity: .45; }
+  #sez-radar .riga-ora strong { color: #fff; }
+  #sez-radar .giorno, #sez-radar .legende, #sez-radar .nota { color: #a9b8c8; }
+  #sez-radar .palco-fisso { border-radius: 12px; overflow: hidden; box-shadow: 0 0 0 1px #24344a; }
+  .comandi-visore { display: grid; gap: 8px; margin: 6px 0 10px; }
+  .riga-com { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .riga-com .etich { flex: none; width: 112px; font-size: .7rem; letter-spacing: .08em; text-transform: uppercase; font-weight: 700; color: #8fa3b8; }
+  .gruppo-in { display: contents; }
+  @media (max-width: 700px) {
+    .riga-com { flex-direction: column; align-items: stretch; gap: 4px; }
+    .riga-com .gruppo { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 3px; }
+    .riga-com .gruppo button { flex: none; }
+  }
+  /* ---- NEROLA ADESSO (riquadro sotto la mappa) */
+  #adesso { position: relative; overflow: hidden; border-radius: 16px; color: #fff; padding: 16px 18px 14px; isolation: isolate;
             background: linear-gradient(135deg, #2f7ed8 0%, #59a8f0 55%, #9fd2ff 100%); box-shadow: 0 10px 30px rgba(16,40,80,.18); }
   #adesso.notte { background: linear-gradient(135deg, #0d1b3d 0%, #1d3266 60%, #36508f 100%); }
   #adesso.nuvoloso { background: linear-gradient(135deg, #4e6378 0%, #6f8599 55%, #9fb0c0 100%); }
@@ -50,14 +68,14 @@
   @media (prefers-reduced-motion: reduce) { #adesso .effetto, #adesso .lampo-fx { animation: none; } }
   .eroe-testa { display: grid; grid-template-columns: auto 1fr auto; gap: 18px; align-items: center; }
   @media (max-width: 700px) { .eroe-testa { grid-template-columns: auto 1fr; } .eroe-temp { grid-column: 1 / -1; text-align: left !important; } }
-  .icona-grande { width: 96px; height: 96px; filter: drop-shadow(0 4px 10px rgba(0,0,0,.25)); }
+  .icona-grande { width: 64px; height: 64px; filter: drop-shadow(0 4px 10px rgba(0,0,0,.25)); }
   .icona-grande svg { width: 100%; height: 100%; }
   .luogo { font-size: .78rem; letter-spacing: .12em; text-transform: uppercase; opacity: .85; font-weight: 600; }
-  #frase-pioggia { font-size: clamp(1.35rem, 3.2vw, 2.1rem); font-weight: 800; line-height: 1.15; margin: 4px 0 6px; text-shadow: 0 2px 8px rgba(0,0,0,.2); }
+  #frase-pioggia { font-size: clamp(1.15rem, 2.4vw, 1.6rem); font-weight: 800; line-height: 1.15; margin: 4px 0 6px; text-shadow: 0 2px 8px rgba(0,0,0,.2); }
   .conto { font-size: 1rem; opacity: .95; }
   .conto b { font-size: 1.6rem; font-weight: 800; }
   .eroe-temp { text-align: right; }
-  .eroe-temp .gradi { font-size: clamp(2.6rem, 6vw, 3.8rem); font-weight: 200; line-height: 1; }
+  .eroe-temp .gradi { font-size: clamp(2.1rem, 4.5vw, 2.9rem); font-weight: 200; line-height: 1; }
   .eroe-temp small { display: block; font-size: .72rem; opacity: .8; }
   .stazione-riga { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 14px; padding: 10px 14px; border-radius: 14px;
                    background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.2); font-size: .9rem; align-items: baseline; }
@@ -185,66 +203,51 @@
 <body>
 <header>
   <div class="testata">
-    <h1>Meteo Nerola <small>satellite, radar e previsione delle prossime 6 ore</small></h1>
+    <h1>Radar e satellite <small>Nerola, Sabina, Lazio e Italia in tempo reale, con la pioggia delle prossime 6 ore</small></h1>
     <div class="sotto" id="aggiornato">caricamento...</div>
   </div>
 </header>
 <main>
   <div id="errore"></div>
 
-  <section id="adesso" aria-live="polite">
-    <div class="effetto"></div><div class="lampo-fx"></div>
-    <div class="eroe-testa">
-      <div class="icona-grande" id="icona-grande" aria-hidden="true"></div>
-      <div>
-        <div class="luogo">Nerola · adesso <span id="ora-eroe"></span></div>
-        <h2 id="frase-pioggia">caricamento...</h2>
-        <div class="conto" id="conto"></div>
-      </div>
-      <div class="eroe-temp" id="eroe-temp"></div>
-    </div>
-    <div class="stazione-riga" id="stazione-riga"></div>
-    <div class="chip-riga" id="chip-eroe"></div>
-    <div class="pannelli">
-      <div class="pannello">
-        <h3>Prossime 2 ore, ogni 10 minuti</h3>
-        <canvas id="grafico-minuti" width="760" height="260"></canvas>
-      </div>
-      <div class="pannello">
-        <h3>Prossime 6 ore</h3>
-        <div class="ore6" id="ore6"></div>
-      </div>
-    </div>
-    <div class="allerte" id="allerte"></div>
-  </section>
-
   <div class="schede" role="tablist" aria-label="Scegli la mappa">
-    <button role="tab" data-scheda="sez-radar" aria-selected="true">📡 Mappa base<small>il radar, semplice e chiaro</small></button>
+    <button role="tab" data-scheda="sez-radar" aria-selected="true">📡 Radar e satellite<small>pioggia, nubi, fulmini e cime dei temporali</small></button>
     <button role="tab" data-scheda="sez-3d" aria-selected="false">🧊 Radar 3D<small>i temporali in volume, da girare col dito</small></button>
     <button role="tab" data-scheda="sez-mappa" aria-selected="false" hidden>🗺️ Mappa per esperti<small>zoom, nubi, fulmini, satellite e fondi diversi</small></button>
   </div>
 
   <section class="card" id="sez-radar">
     <div class="titolo-sez">
-      <h2>📡 Radar</h2>
-      <p>l'immagine del radar, dalle ultime 2 ore alla previsione delle prossime 6</p>
+      <h2>📡 Radar e satellite</h2>
       <span class="spinge"></span>
       <div class="gruppo" role="group" aria-label="Zona">
-        <button data-zona1="lazio" aria-pressed="true">Lazio</button>
         <button data-zona1="sabina" aria-pressed="false">Sabina</button>
+        <button data-zona1="lazio" aria-pressed="true">Lazio</button>
+        <button data-zona1="italia" aria-pressed="false">Italia</button>
       </div>
     </div>
-    <div class="prodotti">
-      <div class="gruppo" role="group" aria-label="Cosa vedere">
-        <button data-prod="" aria-pressed="true">🌧️ Pioggia adesso e prevista</button>
+    <div class="comandi-visore">
+      <div class="riga-com"><span class="etich">Sfondo</span>
+        <div class="gruppo" role="group" aria-label="Sfondo" id="r-fondi">
+          <button data-fondo="" aria-pressed="true">🗺️ Mappa</button>
+          <button data-fondo="visibile" aria-pressed="false">🛰️ Satellite HD</button>
+          <button data-fondo="colori" aria-pressed="false">🌍 Colori reali</button>
+          <button data-fondo="infrarosso" aria-pressed="false">🌡️ Infrarosso</button>
+        </div>
       </div>
-      <div class="gruppo" role="group" aria-label="Fondo" id="r-fondi">
-        <button data-fondo="" aria-pressed="true">🗺️ Mappa</button>
-        <button data-fondo="visibile" aria-pressed="false">🛰️ Satellite HD</button>
-        <button data-fondo="topnubi" aria-pressed="false">🌡️ Satellite HD + top nubi</button>
+      <div class="riga-com"><span class="etich">Sovrapponi</span>
+        <div class="gruppo gruppo--libero" role="group" aria-label="Cosa sovrapporre">
+          <button data-sopra="pioggia" aria-pressed="true">🌧️ Pioggia (radar)</button>
+          <button data-sopra="fulmini" aria-pressed="true">⚡ Fulmini</button>
+          <button data-sopra="top" aria-pressed="false">🔥 Cime dei temporali</button>
+        </div>
       </div>
-      <span>Pioggia caduta nelle ultime</span>
-      <div class="gruppo" role="group" aria-label="Pioggia caduta" id="r-accumuli"></div>
+      <div class="riga-com"><span class="etich">Pioggia caduta</span>
+        <div class="gruppo" role="group" aria-label="Pioggia caduta">
+          <button data-prod="" aria-pressed="true">Adesso e prevista</button>
+          <span id="r-accumuli" class="gruppo-in"></span>
+        </div>
+      </div>
     </div>
     <div class="riga-ora">
       <div><strong id="r-ora">--</strong><span class="giorno" id="r-giorno"></span></div>
@@ -373,6 +376,32 @@
     <div class="info-esperti" id="info-esperti"></div>
   </section>
 
+  <section id="adesso" aria-live="polite">
+    <div class="effetto"></div><div class="lampo-fx"></div>
+    <div class="eroe-testa">
+      <div class="icona-grande" id="icona-grande" aria-hidden="true"></div>
+      <div>
+        <div class="luogo">Nerola · adesso <span id="ora-eroe"></span></div>
+        <h2 id="frase-pioggia">caricamento...</h2>
+        <div class="conto" id="conto"></div>
+      </div>
+      <div class="eroe-temp" id="eroe-temp"></div>
+    </div>
+    <div class="stazione-riga" id="stazione-riga"></div>
+    <div class="chip-riga" id="chip-eroe"></div>
+    <div class="pannelli">
+      <div class="pannello">
+        <h3>Prossime 2 ore, ogni 10 minuti</h3>
+        <canvas id="grafico-minuti" width="760" height="260"></canvas>
+      </div>
+      <div class="pannello">
+        <h3>Prossime 6 ore</h3>
+        <div class="ore6" id="ore6"></div>
+      </div>
+    </div>
+    <div class="allerte" id="allerte"></div>
+  </section>
+
   <section class="griglia-sotto">
     <div class="card">
       <h2>Come si muove il tempo</h2>
@@ -440,6 +469,17 @@
     return immagini[src];
   }
   const pronta = (im) => im && im.complete && im.naturalWidth > 0;
+  // coda di scaricamento: 4 immagini alla volta, nell'ordine in cui servono (con la connessione lenta le prime arrivano subito)
+  const codaImg = []; let voloImg = 0;
+  function accoda(src) { if (src && !immagini[src]) codaImg.push(src); }
+  function svuota() {
+    while (voloImg < 4 && codaImg.length) {
+      const s_ = codaImg.shift(); if (immagini[s_]) continue;
+      const im = img(s_); voloImg++;
+      const fine = () => { voloImg--; svuota(); };
+      im.addEventListener("load", fine, { once: true }); im.addEventListener("error", fine, { once: true });
+    }
+  }
 
   // ------------------------------------------------------------------ passi dell'animazione (ogni 10 minuti)
   function vicino(elenco, t, tolleranza) {
@@ -467,7 +507,7 @@
   function costruisciPassi(zone, vistaTipo, esperto) {
     const t0 = data(S.radar.t0), passi = [];
     if (esperto && S.sat) {
-      (S.sat.zone.lazio.esperti[esperto] || []).forEach((f) => {
+      ((S.sat.zone[zone[0]] || S.sat.zone.lazio).esperti[esperto] || []).forEach((f) => {
         const t = data(f.ora), z = {};
         zone.forEach((zn) => { z[zn] = sorgenti(zn, t, -1, vistaTipo, esperto); });
         passi.push({ t, m: Math.round((t - t0) / 60000), z, tipo: "oss" });
@@ -477,12 +517,17 @@
         const t = new Date(t0.getTime() + m * 60000), z = {};
         zone.forEach((zn) => { z[zn] = sorgenti(zn, t, m, vistaTipo, ""); });
         const p0 = z[zone[0]];
+        if (!p0) continue;
+        if (m > 0 && S.radar.zone[zone[0]].solo_osservato) continue;      // tutta Italia: solo osservato
         if (m < 0 && !p0.pioggia && !p0.nubi) continue;
         if (vistaTipo === "radar" && m < 0 && !p0.pioggia) continue;
         passi.push({ t, m, z, tipo: m <= 0 ? "oss" : "prev", stimate: p0.stimate });
       }
     }
-    passi.forEach((p) => Object.values(p.z).forEach((s) => { if (s) { img(s.sfondo); img(s.nubi); img(s.pioggia); } }));
+    let ka = 0; passi.forEach((p, k) => { if (p.tipo === "oss") ka = k; });
+    passi.map((p, k) => [p, k]).sort((x, y) => Math.abs(x[1] - ka) - Math.abs(y[1] - ka))
+      .forEach(([p]) => Object.values(p.z).forEach((s) => { if (s) { accoda(s.sfondo); accoda(s.pioggia); accoda(s.nubi); } }));
+    svuota();
     return passi;
   }
 
@@ -522,7 +567,11 @@
     L.passo = (dt) => {
       if (!L.gioca || !L.passi.length) return;
       if (L.pos >= L.passi.length - 1) { L.pausa += dt; if (L.pausa > 1500) { L.pausa = 0; L.pos = 0; } }
-      else L.pos = Math.min(L.passi.length - 1, L.pos + dt / 650);
+      else {
+        const k = Math.floor(L.pos), nuovo = Math.min(L.passi.length - 1, L.pos + dt / 650);
+        if (L.pronto && nuovo > k + 0.7 && !L.pronto(k + 1)) { L.attesa = (L.attesa || 0) + dt; if (L.attesa < 4000) { L.pos = k + 0.7; L.ridisegna(); return; } }
+        L.attesa = 0; L.pos = nuovo;
+      }
       L.ridisegna();
     };
     el("cursore").addEventListener("input", (e) => { L.avvia(false); L.vai(+e.target.value); });
@@ -541,8 +590,22 @@
     ctx.lineTo(x + 0.6 * r, y - 0.1 * r); ctx.lineTo(x - 0.4 * r, y + r * 1.1); ctx.lineTo(x - 0.05 * r, y + 0.15 * r); ctx.lineTo(x - 0.55 * r, y + 0.15 * r); ctx.closePath();
     ctx.fillStyle = col; ctx.fill(); ctx.lineWidth = lw; ctx.strokeStyle = "#222"; ctx.stroke();
   }
-  // due istanti vicini sfumati l'uno nell'altro (animazione fluida)
+  // due istanti vicini: lo scatto resta fermo per quasi tutto il passo e solo alla fine si dissolve nel successivo,
+  // disegnato SOPRA quello vecchio ancora pieno (niente immagini mezze trasparenti sovrapposte)
   function coppia(L) { const k = Math.floor(L.pos), f = L.pos - k; return [L.passi[k], L.passi[Math.min(k + 1, L.passi.length - 1)], f]; }
+  const dissolvi = (f) => { const x = Math.max(0, Math.min(1, (f - 0.72) / 0.28)); return x * x * (3 - 2 * x); };
+  // se l'immagine voluta non e' ancora arrivata si ridisegna l'ultima arrivata dello stesso livello (niente buchi)
+  const ultime = {};
+  function livello(ctx, chiave, srcA, srcB, f, W, H, disegna) {
+    const ia = img(srcA), ib = img(srcB), fe = dissolvi(f);
+    const tira = disegna || ((im, al) => { ctx.globalAlpha = al; ctx.drawImage(im, 0, 0, W, H); });
+    let base = null;
+    if (srcA && pronta(ia)) base = ia;
+    else if (srcA && ultime[chiave] && pronta(ultime[chiave])) base = ultime[chiave];
+    if (base) { tira(base, 1); ultime[chiave] = base; }
+    if (srcB && srcB !== srcA && fe > 0.001 && pronta(ib)) { tira(ib, fe); if (fe > 0.5) ultime[chiave] = ib; }
+    ctx.globalAlpha = 1;
+  }
 
   // dall'immagine "top nubi" si tengono solo le cime colorate (sotto -30 gradi): vanno sopra il visibile HD
   const colorate = {};
@@ -561,32 +624,37 @@
   }
   function topVicino(zona, t) { const zs = S.sat && S.sat.zone[zona]; const e = zs ? vicino(zs.esperti.topnubi, t, 6 * 60000) : null; return e ? zona + "/" + e.file : null; }
 
-  // ------------------------------------------------------------------ SEZIONE 1: immagine radar normale (fissa)
-  const R = { zona: "lazio", acc: "", fondo: "" };
+  // ------------------------------------------------------------------ SEZIONE 1: radar e satellite (immagine fissa)
+  // fondo: "" mappa, oppure un prodotto del satellite (visibile, colori, infrarosso); sopra: pioggia, fulmini, cime dei temporali
+  const R = { zona: "lazio", acc: "", fondo: "", sopra: { pioggia: true, fulmini: true, top: false } };
   const prodAcc = () => R.acc && S.radar.accumuli ? (S.radar.accumuli.prodotti || []).find((p) => p.tipo === R.acc) : null;
   function disegnaRadar(ctx, W, H, L) {
     const [A, B, f] = coppia(L); if (!A) return;
     const z = S.radar.zone[R.zona], a = A.z[R.zona], b = B.z[R.zona];
+    if (!z || !a || !b) return;
     ctx.save(); ctx.fillStyle = "#666b72"; ctx.fillRect(0, 0, W, H); ctx.scale(W / z.larghezza, H / z.altezza);
-    const strato = (src, alfa) => { const im = img(src); if (pronta(im) && alfa > 0.001) { ctx.globalAlpha = alfa; ctx.drawImage(im, 0, 0, z.larghezza, z.altezza); } };
-    const sat = R.fondo && !R.acc;
-    if (sat) { if (a.sfondo === b.sfondo) strato(a.sfondo, 1); else { strato(a.sfondo, 1 - f); strato(b.sfondo, f); } }
-    else strato(R.zona + "/mappa_grigia.jpg", 1);
+    const ZW = z.larghezza, ZH = z.altezza;
+    const strato = (src, alfa) => { const im = img(src); if (pronta(im) && alfa > 0.001) { ctx.globalAlpha = alfa; ctx.drawImage(im, 0, 0, ZW, ZH); } };
     const pa = prodAcc();
+    const sat = R.fondo && !pa;
+    if (sat) livello(ctx, "sfondo", a.sfondo, b.sfondo, f, ZW, ZH);
+    else strato(R.zona + "/mappa_grigia.jpg", 1);
     if (pa) { strato(R.zona + "/" + pa.file[R.zona], 1); ctx.globalAlpha = 1; strato(R.zona + "/confini.png", 1); ctx.restore(); return; }
-    if (sat && R.fondo === "topnubi") {
-      const ca = soloColori(topVicino(R.zona, A.t)), cb = soloColori(topVicino(R.zona, B.t));
-      if (ca) { ctx.globalAlpha = cb && cb !== ca ? 1 - f : 1; ctx.drawImage(ca, 0, 0, z.larghezza, z.altezza); }
-      if (cb && cb !== ca) { ctx.globalAlpha = f; ctx.drawImage(cb, 0, 0, z.larghezza, z.altezza); }
-    } else if (a.pioggia === b.pioggia) strato(a.pioggia, 1); else { strato(a.pioggia, 1 - f); strato(b.pioggia, f); }
+    if (R.sopra.top) {
+      const ta = topVicino(R.zona, A.t), tb = topVicino(R.zona, B.t);
+      livello(ctx, "top", ta, tb, f, ZW, ZH, (im, al) => { const c = soloColori(im === img(ta) ? ta : tb); if (c) { ctx.globalAlpha = al; ctx.drawImage(c, 0, 0, ZW, ZH); } });
+    }
+    if (R.sopra.pioggia) livello(ctx, "pioggia", a.pioggia, b.pioggia, f, ZW, ZH);
     ctx.globalAlpha = 1; strato(R.zona + (sat ? "/confini_bianchi.png" : "/confini.png"), 1);
-    const t = new Date(A.t.getTime() + f * 10 * 60000);
-    fulminiAttivi(t).forEach(({ f: fl, eta }) => {
-      const x = (fl.lon - z.riquadro[0]) / (z.riquadro[1] - z.riquadro[0]) * z.larghezza, y = (z.riquadro[3] - fl.lat) / (z.riquadro[3] - z.riquadro[2]) * z.altezza;
-      if (x < -10 || y < -10 || x > z.larghezza + 10 || y > z.altezza + 10) return;
-      ctx.globalAlpha = eta <= 30 ? 1 : Math.max(0.35, 1 - (eta - 30) / 40);
-      fulmine(ctx, x, y, eta <= 10 ? 8 : 6, eta <= 10 ? "#fff36b" : eta <= 30 ? "#ff9a1f" : "#d93b2b", 1.2);
-    });
+    if (R.sopra.fulmini) {
+      const t = new Date(A.t.getTime() + f * 10 * 60000);
+      fulminiAttivi(t).forEach(({ f: fl, eta }) => {
+        const x = (fl.lon - z.riquadro[0]) / (z.riquadro[1] - z.riquadro[0]) * ZW, y = (z.riquadro[3] - fl.lat) / (z.riquadro[3] - z.riquadro[2]) * ZH;
+        if (x < -10 || y < -10 || x > ZW + 10 || y > ZH + 10) return;
+        ctx.globalAlpha = eta <= 30 ? 1 : Math.max(0.35, 1 - (eta - 30) / 40);
+        fulmine(ctx, x, y, R.zona === "italia" ? 5 : eta <= 10 ? 8 : 6, eta <= 10 ? "#fff36b" : eta <= 30 ? "#ff9a1f" : "#d93b2b", 1.2);
+      });
+    }
     ctx.restore();
   }
   const LR = Lettore("r", (L) => {
@@ -600,12 +668,15 @@
       $("r-etichetta").className = "etichetta"; $("r-etichetta").textContent = "CADUTA IN " + pa.ore + (pa.ore === 1 ? " ORA" : " ORE") + (m ? " · MAX " + String(m).replace(".", ",") + " mm" : "");
     }
     return !!pa;
-  }, () => R.fondo === "topnubi" ? "SATELLITE HD + TOP NUBI" : R.fondo ? "SATELLITE HD + RADAR" : "RADAR OSSERVATO");
+  }, () => { const n = { visibile: "SATELLITE HD", colori: "COLORI REALI", infrarosso: "INFRAROSSO" }[R.fondo];
+    return n ? n + (R.sopra.pioggia ? " + RADAR" : "") : R.sopra.pioggia ? "RADAR OSSERVATO" : "OSSERVATO"; });
+  // l'animazione non va avanti finche' le immagini dello scatto successivo non sono arrivate
+  LR.pronto = (k) => { const p = LR.passi[k]; if (!p) return true; const s_ = p.z[R.zona] || {};
+    return [R.fondo ? s_.sfondo : null, R.sopra.pioggia ? s_.pioggia : null].every((x) => !x || pronta(img(x))); };
   function scegliProdotto(tipo) {
     R.acc = tipo || "";
     document.querySelectorAll("[data-prod]").forEach((x) => x.setAttribute("aria-pressed", x.dataset.prod === R.acc));
-    $("r-barra").hidden = !!R.acc; $("r-leg-int").hidden = !!R.acc || R.fondo === "topnubi"; $("r-leg-acc").hidden = !R.acc;
-    $("r-leg-top").hidden = !!R.acc || R.fondo !== "topnubi";
+    $("r-barra").hidden = !!R.acc; legende();
     if (R.acc) LR.avvia(false);
     const pa = prodAcc(); if (pa) img(R.zona + "/" + pa.file[R.zona]);
     LR.ridisegna();
@@ -617,16 +688,31 @@
     box.parentElement.querySelectorAll("[data-prod]").forEach((b) => { b.onclick = () => scegliProdotto(b.dataset.prod); });
     if (R.acc && !prodAcc()) scegliProdotto("");
   }
+  function legende() {
+    $("r-leg-int").hidden = !!R.acc || !R.sopra.pioggia; $("r-leg-acc").hidden = !R.acc;
+    $("r-leg-top").hidden = !!R.acc || !R.sopra.top;
+  }
   function preparaRadar() {
+    const bi = document.querySelector('[data-zona1="italia"]'); if (bi) bi.hidden = !S.radar.zone.italia;
+    if (!S.radar.zone[R.zona]) R.zona = "lazio";
+    document.querySelectorAll("[data-zona1]").forEach((x) => x.setAttribute("aria-pressed", x.dataset.zona1 === R.zona));
+    const zsat = S.sat && S.sat.zone[R.zona];
+    if (R.fondo && !(zsat && (zsat.esperti[R.fondo] || []).length)) {
+      R.fondo = ""; document.querySelectorAll("[data-fondo]").forEach((x) => x.setAttribute("aria-pressed", x.dataset.fondo === ""));
+    }
     const z = S.radar.zone[R.zona], c = $("r-tela");
     c.width = z.larghezza; c.height = z.altezza; $("r-palco").style.setProperty("--forma", z.larghezza / z.altezza);
     img(R.zona + "/mappa_grigia.jpg"); img(R.zona + "/confini.png"); img(R.zona + "/confini_bianchi.png");
-    // con il satellite come fondo si vedono solo le ultime ore osservate (il satellite non ha previsione in alta definizione)
-    const fondoSat = R.fondo && S.sat && S.sat.zone[R.zona] && (S.sat.zone[R.zona].esperti.visibile || []).length ? "visibile" : "";
+    // con il satellite (come fondo o per le cime dei temporali) si vedono solo le ore osservate: il satellite non ha previsione
+    const zs = S.sat && S.sat.zone[R.zona];
+    const prodotto = R.fondo || (R.sopra.top ? "topnubi" : "");
+    const fondoSat = prodotto && zs && (zs.esperti[prodotto] || []).length ? prodotto : "";
+    document.querySelectorAll("[data-fondo]").forEach((x) => { x.disabled = !!x.dataset.fondo && !(zs && (zs.esperti[x.dataset.fondo] || []).length); });
     const passi = costruisciPassi([R.zona], "radar", fondoSat);
-    if (R.fondo === "topnubi") passi.forEach((p) => img(topVicino(R.zona, p.t)));
+    if (R.sopra.top) passi.forEach((p) => img(topVicino(R.zona, p.t)));
+    for (const k in ultime) delete ultime[k];
     LR.imposta(passi, fondoSat);
-    $("r-leg-int").hidden = !!R.acc || R.fondo === "topnubi"; $("r-leg-top").hidden = R.fondo !== "topnubi" || !!R.acc;
+    legende();
   }
 
   // ------------------------------------------------------------------ SEZIONE 2: mappa interattiva (Leaflet)
@@ -789,7 +875,8 @@
 
   // ------------------------------------------------------------------ immagine completa (copia / salva)
   // un'immagine unica e completa (mappa, radar, nubi, confini, titolo, legenda): quella della zona intera
-  function immagineCompleta(L, zona, conNubi, vistaTipo, esperto, acc) {
+  function immagineCompleta(L, zona, conNubi, vistaTipo, esperto, acc, opz) {
+    opz = opz || { pioggia: true };
     const z = S.radar.zone[zona], W = z.larghezza, H = z.altezza, ALTO = 58, LEG = 34, CRED = 24;
     const cv = document.createElement("canvas"); cv.width = W; cv.height = ALTO + H + LEG + CRED;
     const x = cv.getContext("2d");
@@ -797,19 +884,20 @@
     const [A, B, f] = coppia(L), a = A.z[zona], b = B.z[zona];
     x.save(); x.translate(0, ALTO);
     const strato = (src, alfa) => { const im = img(src); if (pronta(im) && alfa > 0.001) { x.globalAlpha = alfa; x.drawImage(im, 0, 0, W, H); } };
-    const conTop = esperto === "topnubi_hd";
-    if (conTop) esperto = "visibile";
-    if (esperto) strato(a.sfondo, 1); else strato(zona + (vistaTipo === "radar" ? "/mappa_grigia.jpg" : "/mappa.jpg"), 1);
+    const conTop = !!opz.top;
+    if (esperto && a.sfondo) strato(a.sfondo, 1); else strato(zona + (vistaTipo === "radar" ? "/mappa_grigia.jpg" : "/mappa.jpg"), 1);
     if (conNubi && !esperto && vistaTipo !== "radar") { strato(a.nubi, 1 - f); strato(b.nubi, f); }
     if (acc) strato(zona + "/" + acc.file[zona], 1);
-    else if (conTop) { const ct = soloColori(topVicino(zona, A.t)); if (ct) { x.globalAlpha = 1; x.drawImage(ct, 0, 0, W, H); } }
-    else { strato(a.pioggia, a.pioggia === b.pioggia ? 1 : 1 - f); if (a.pioggia !== b.pioggia) strato(b.pioggia, f); }
+    else {
+      if (conTop) { const ct = soloColori(topVicino(zona, A.t)); if (ct) { x.globalAlpha = 1; x.drawImage(ct, 0, 0, W, H); } }
+      if (opz.pioggia !== false) strato(a.pioggia, 1);
+    }
     x.globalAlpha = 1; strato(zona + (esperto ? "/confini_bianchi.png" : "/confini.png"), 1);
     x.restore();
     const p0 = L.passi[Math.round(L.pos)], p = acc ? { t: data(acc.ora), m: 0, tipo: "oss" } : p0, l = locale(p.t);
     const nomi = { visibile: "Satellite visibile HD", colori: "Satellite colori reali", infrarosso: "Satellite infrarosso", topnubi: "Top nubi" };
     const prefisso = vistaTipo === "radar" ? "Radar" : "Satellite e radar";
-    const tit = conTop ? "Satellite HD e top nubi" : esperto ? nomi[esperto] : (p.tipo === "prev" ? (vistaTipo === "radar" ? "Radar previsto +" : "Previsione +") + (p.m >= 60 ? Math.floor(p.m / 60) + "h " : "") + (p.m % 60 ? (p.m % 60) + "min" : "") : prefisso);
+    const tit = esperto ? nomi[esperto] + (conTop ? " e cime dei temporali" : "") : conTop ? "Cime dei temporali" : (p.tipo === "prev" ? (vistaTipo === "radar" ? "Radar previsto +" : "Previsione +") + (p.m >= 60 ? Math.floor(p.m / 60) + "h " : "") + (p.m % 60 ? (p.m % 60) + "min" : "") : prefisso);
     x.fillStyle = "#111"; x.textBaseline = "middle"; x.textAlign = "left"; x.font = "600 21px system-ui, sans-serif";
     x.fillText((acc ? "Pioggia caduta in " + acc.ore + (acc.ore === 1 ? " ora" : " ore") : tit) + " · " + z.nome, 12, ALTO / 2 - 9);
     x.font = "14px system-ui, sans-serif"; x.fillStyle = "#555";
@@ -850,11 +938,16 @@
       document.body.appendChild(a); a.click(); a.remove();
     };
   }
-  pulsantiImmagine("r", LR, () => immagineCompleta(LR, R.zona, false, "radar", R.acc ? "" : R.fondo === "topnubi" ? "topnubi_hd" : R.fondo, prodAcc()));
+  pulsantiImmagine("r", LR, () => immagineCompleta(LR, R.zona, false, "radar", R.acc ? "" : R.fondo, prodAcc(), { top: R.sopra.top, pioggia: R.sopra.pioggia }));
   document.querySelectorAll("[data-fondo]").forEach((b) => b.addEventListener("click", () => {
     document.querySelectorAll("[data-fondo]").forEach((x) => x.setAttribute("aria-pressed", x === b));
     R.fondo = b.dataset.fondo; if (R.acc) scegliProdotto("");
     const g = LR.gioca; preparaRadar(); if (g) LR.avvia(true);
+  }));
+  document.querySelectorAll("[data-sopra]").forEach((b) => b.addEventListener("click", () => {
+    const k = b.dataset.sopra; R.sopra[k] = !R.sopra[k]; b.setAttribute("aria-pressed", R.sopra[k]);
+    if (R.acc) scegliProdotto("");
+    if (k === "top") { const g = LR.gioca; preparaRadar(); if (g) LR.avvia(true); } else { legende(); LR.ridisegna(); }
   }));
   // dalla mappa interattiva: l'immagine completa della zona che si sta guardando (Sabina se si e' vicini a Nerola)
   pulsantiImmagine("m", LM, () => immagineCompleta(LM, M.carta && M.carta.getZoom() >= 10 ? "sabina" : "lazio", M.strati.nubi, M.vistaTipo, M.esperto));
