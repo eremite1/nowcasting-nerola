@@ -160,14 +160,14 @@ void main() {
         float d = dbz(q), k = q.y / uEsag;
         float riga = 1.0 - smoothstep(0.0, 0.035 * max(1.0, 8.0 / uEsag), abs(fract(k + 0.5) - 0.5));
         if (d >= uSoglia - 3.0) dentro(acc, pal(d) * 1.1 + riga * 0.15, 0.93 * smoothstep(uSoglia - 3.0, uSoglia + 2.0, d));
-        dentro(acc, mix(vec3(0.45, 0.75, 1.0), vec3(0.8, 0.95, 1.0), riga), 0.10 + 0.30 * riga);
+        dentro(acc, mix(vec3(0.45, 0.75, 1.0), vec3(0.8, 0.95, 1.0), riga), 0.05 + 0.30 * riga);
       }
     }
     if (p.y < suolo(p)) { terra = true; break; }
     float d = dbz(p);
     if (uModo < 0.5 || uModo > 2.5) {
       if (d > uSoglia - 5.0) {
-        float k = smoothstep(uSoglia - 4.0, uSoglia + 6.0, d) * (0.03 + 0.40 * smoothstep(22.0, 58.0, d));
+        float k = smoothstep(uSoglia - 4.0, uSoglia + 6.0, d) * (0.045 + 0.55 * smoothstep(22.0, 58.0, d));
         if (uModo > 2.5) k *= 0.18;
         float al = 1.0 - exp(-k * dt);
         vec3 c = pal(d);
@@ -206,7 +206,7 @@ void main() {
       float d = dbz(q), k = q.y / uEsag;
       float riga = 1.0 - smoothstep(0.0, 0.035 * max(1.0, 8.0 / uEsag), abs(fract(k + 0.5) - 0.5));
       if (d >= uSoglia - 3.0) dentro(acc, pal(d) * 1.1, 0.93 * smoothstep(uSoglia - 3.0, uSoglia + 2.0, d));
-      dentro(acc, mix(vec3(0.45, 0.75, 1.0), vec3(0.8, 0.95, 1.0), riga), 0.10 + 0.30 * riga);
+      dentro(acc, mix(vec3(0.45, 0.75, 1.0), vec3(0.8, 0.95, 1.0), riga), 0.05 + 0.30 * riga);
     }
   }
   if (uModo > 0.5 && uModo < 1.5) { vec3 g = 1.0 - exp(-glow); gl_FragColor = vec4(g, max(acc.a, max(g.r, max(g.g, g.b)) * 0.55)); return; }
@@ -428,9 +428,7 @@ function costruisciEtichette() {
 function costruisciAsse() {
   if (asseQuote) { scena.remove(asseQuote); asseQuote.traverse((o) => { if (o.geometry) o.geometry.dispose(); }); }
   const g = geo(); asseQuote = new THREE.Group();
-  let x, z;
-  if (bboxEco[2] >= 0) { x = -g.W / 2 + Math.max(0, bboxEco[0] - 3) * g.dx; z = -g.H / 2 + Math.min(g.R, bboxEco[3] + 4) * g.dz; }
-  else { [x, z] = inXZ(NERO_LON, NERO_LAT); x -= 25; z += 25; }
+  let [x, z] = inXZ(NERO_LON, NERO_LAT); x -= 45; z += 30;      // a sud-ovest di Nerola, sempre in vista
   const pts = [new THREE.Vector3(x, 0, z), new THREE.Vector3(x, 10 * esag, z)];
   for (let k = 1; k <= 10; k++) { pts.push(new THREE.Vector3(x, k * esag, z), new THREE.Vector3(x + (k % 5 ? 1.5 : 3), k * esag, z)); }
   asseQuote.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0x6fe3ff, transparent: true, opacity: 0.8, depthTest: false })));
