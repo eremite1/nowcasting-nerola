@@ -289,31 +289,71 @@
   </section>
 
   <section class="card" id="sez-3d" hidden>
+    <style>
+      #sez-3d { --h3: #6fe3ff; }
+      #v3d { position: relative; width: 100%; height: min(74vh, 760px); min-height: 380px; border-radius: 14px; overflow: hidden;
+             background: radial-gradient(120% 90% at 50% 0%, #142540 0%, #070d18 70%); touch-action: none; border: 1px solid #1d3352; }
+      #v3d.pieno { position: fixed; inset: 0; z-index: 9999; height: 100%; border-radius: 0; border: 0; }
+      #v3d canvas { display: block; }
+      .hud { position: absolute; z-index: 3; pointer-events: none; color: #dff6ff; font: 600 12px/1.3 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+             text-shadow: 0 1px 3px #000a; letter-spacing: .04em; }
+      .hud.alto { top: 12px; left: 14px; }
+      .hud.alto b { display: block; font-size: 15px; color: var(--h3); letter-spacing: .12em; }
+      .hud.alto span { display: block; color: #9fc3d8; font-weight: 500; }
+      .hud.basso { bottom: 10px; left: 14px; font-size: 10.5px; color: #8fb2c8; font-weight: 500; }
+      .pulsanti3d { position: absolute; z-index: 4; top: 10px; right: 10px; display: flex; gap: 6px; }
+      .pulsanti3d button, .modi3d button { font: 700 11.5px/1 system-ui, sans-serif; letter-spacing: .06em; text-transform: uppercase; color: #dff6ff;
+             background: #0d1a2ccc; border: 1px solid #2b4f74; border-radius: 8px; padding: 8px 11px; cursor: pointer; backdrop-filter: blur(6px); }
+      .pulsanti3d button:hover, .modi3d button:hover { border-color: var(--h3); }
+      #t3-chiudi { display: none; }
+      #v3d.pieno #t3-chiudi { display: inline-block; }
+      .modi3d { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 8px; }
+      .modi3d button { background: #0f1c2e; text-transform: none; letter-spacing: .02em; font-size: .86rem; padding: 9px 13px; }
+      .modi3d button[aria-pressed=true] { background: linear-gradient(180deg, #1b6fa8, #0f4c7a); border-color: var(--h3); color: #fff; box-shadow: 0 0 12px #3bc3ff55; }
+      .regola3d { display: flex; flex-wrap: wrap; gap: 10px 22px; align-items: center; font-size: .88rem; }
+      .regola3d label { display: flex; align-items: center; gap: 8px; }
+      .regola3d input[type=range] { accent-color: #2fb4f0; width: 150px; }
+      .regola3d select { font: inherit; padding: 4px 6px; border-radius: 6px; }
+      #t3-sezbox { display: none; margin-top: 10px; border-radius: 12px; overflow: hidden; border: 1px solid #1d3352; background: #070d18; }
+      #t3-sezbox canvas { display: block; width: 100%; height: 250px; }
+      #t3-scala { height: 12px; border-radius: 6px; position: relative; margin: 4px 0 16px; }
+      #t3-scala span { position: absolute; top: 14px; transform: translateX(-50%); font-size: .7rem; color: var(--muto); }
+    </style>
     <div class="testa">
       <h2>🧊 Radar 3D</h2>
-      <span class="sotto">la pioggia vista dal radar a 10 quote, da 1 a 10 km, sopra il rilievo vero</span>
+      <span class="sotto">i temporali in volume, da 1 a 10 km di quota, sopra il rilievo vero</span>
     </div>
-    <div class="riga-ora">
-      <div><strong id="t3-ora">--</strong><span class="giorno" id="t3-giorno"></span></div>
-      <span class="etichetta" id="t3-etichetta">RADAR 3D</span>
+    <div id="v3d">
+      <div class="hud alto"><b id="t3-modo">VOLUME</b><span id="t3-ora">--</span><span id="t3-etichetta"></span></div>
+      <div class="pulsanti3d"><button id="t3-centro" title="Rimetti la vista iniziale">Reset</button><button id="t3-pieno" title="Schermo intero">⛶</button><button id="t3-chiudi">Chiudi</button></div>
+      <div class="hud basso" id="t3-crediti">Radar-DPC · CC BY-SA 4.0 · CAPPI --:-- · 1–10 km s.l.m.</div>
+      <div id="v3d-msg" style="position:absolute;inset:0;display:grid;place-items:center;color:#9fc3d8;font-size:.95rem">caricamento del radar 3D...</div>
     </div>
-    <div id="v3d" style="position:relative;width:100%;height:min(72vh,720px);border-radius:12px;overflow:hidden;background:#cfd8e3;touch-action:none">
-      <div id="v3d-msg" style="position:absolute;inset:0;display:grid;place-items:center;color:#334;font-size:.95rem">caricamento del radar 3D...</div>
+    <div class="modi3d" role="group" aria-label="Vista 3D">
+      <button data-modo3="0" aria-pressed="true">🌫️ Volume</button>
+      <button data-modo3="1" aria-pressed="false">✨ Olografico</button>
+      <button data-modo3="2" aria-pressed="false">🫧 Iso-superfici</button>
+      <button data-modo3="3" aria-pressed="false">✂️ Sezione verticale</button>
     </div>
-    <div class="prodotti" style="margin-top:10px">
-      <label style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">Mostra da
-        <input type="range" id="t3-soglia" min="10" max="55" step="5" value="20" style="width:160px">
-        <b id="t3-soglia-v">20 dBZ</b><span id="t3-soglia-mm"></span></label>
-      <label style="display:flex;align-items:center;gap:8px">Altezze esagerate
-        <input type="range" id="t3-esag" min="1" max="6" step="1" value="3" style="width:110px"><b id="t3-esag-v">3 volte</b></label>
-      <button id="t3-centro">🎯 Rimetti la vista</button>
+    <div class="regola3d">
+      <label>Mostra da <input type="range" id="t3-soglia" min="5" max="50" step="1" value="15"><b id="t3-soglia-v">15 dBZ</b><span id="t3-soglia-mm" style="color:var(--muto)"></span></label>
+      <label>Verticale <input type="range" id="t3-esag" min="1" max="12" step="1" value="8"><b id="t3-esag-v">×8</b></label>
+      <span id="t3-tagliobox" style="display:none;gap:10px 18px;flex-wrap:wrap;align-items:center">
+        <label>Taglio <select id="t3-asse"><option value="0">Ovest → Est</option><option value="1">Nord → Sud</option></select></label>
+        <label>Posizione <input type="range" id="t3-pos" min="0" max="1000" step="1" value="500"><b id="t3-pos-v"></b></label>
+      </span>
     </div>
-    <div class="legende">
-      <div class="scala-cont"><span>eco radar dBZ</span><div class="barra-col" id="t3-scala"></div></div>
+    <div id="t3-sezbox"><canvas id="t3-sez"></canvas></div>
+    <div class="legende" style="margin-top:12px">
+      <div><span style="font-size:.8rem;color:var(--muto)">eco radar (dBZ): blu pioggia debole, verde moderata, giallo-rosso forte, viola grandine</span><div id="t3-scala"></div></div>
     </div>
-    <div class="nota">Trascina per girare, due dita (o rotella) per avvicinarti, tasto destro o tre dita per spostarti. Avvicinandoti, la mappa e il rilievo diventano più dettagliati. Ogni "mattoncino" è un cubetto di aria di circa 1,4 km di lato e 1 km di altezza dove il radar riceve un'eco: è misurata davvero a ogni quota, ma in alto non è pioggia bensì neve, ghiaccio o grandine sospesi nella nube (vedi la spiegazione qui sotto). Più il colore è caldo, più l'eco è forte. I temporali forti salgono molto in alto (sopra i 6-7 km): con il cursore "Mostra da" togli la pioggia debole e vedi solo i nuclei. Sotto i 1000 metri il radar non ha la quota più bassa, e dietro le montagne può vedere meno.</div>
+    <div class="nota">Trascina per girare, due dita (o rotella) per avvicinarti, tasto destro o tre dita per spostarti.
+      <b>Volume</b>: la nube di pioggia come la vede il radar, più è densa più è intensa. <b>Olografico</b>: lo stesso volume luminoso e trasparente, per vedere i nuclei dentro.
+      <b>Iso-superfici</b>: tre gusci trasparenti, uno per la pioggia debole, uno per la forte (35 dBZ) e uno per i nuclei di grandine (50 dBZ).
+      <b>Sezione verticale</b>: il volume tagliato con una lama, come fanno i meteorologi: scegli la direzione e sposta il taglio, sotto vedi il profilo dal suolo a 10 km.
+      Le altezze sono esagerate (cursore "Verticale") perché 10 km sopra una regione di 240 km sarebbero quasi piatti.</div>
     <details class="nota"><summary><b>Sono precipitazioni vere a tutte le quote?</b></summary>
-      Sì e no. Il radar <b>misura davvero</b> a ogni quota: manda un impulso e ascolta quanto ne torna indietro dalle particelle nella nube (gocce, fiocchi, chicchi di ghiaccio o grandine). Questa "eco" si misura in dBZ ed è quella che vedi a tutte le quote. Però <b>non è tutta pioggia</b>: sopra lo zero termico (in questa stagione 2-3 km) sono neve, ghiaccio e graupel (neve tonda) che restano sospesi o cadono e fondono scendendo; solo vicino al suolo diventano la pioggia che arriva a terra. I nuclei rossi e viola in alto (oltre 45-50 dBZ sopra i 5-6 km) indicano quasi sempre grandine dentro il temporale. Le quote sono ricostruite dalla Protezione Civile combinando le scansioni dei radar a diverse inclinazioni: lontano dai radar il fascio passa più in alto e le quote basse possono mancare.
+      Sì e no. Il radar <b>misura davvero</b> a ogni quota: manda un impulso e ascolta quanto ne torna indietro dalle particelle nella nube (gocce, fiocchi, chicchi di ghiaccio o grandine). Questa "eco" si misura in dBZ ed è quella che vedi a tutte le quote. Però <b>non è tutta pioggia</b>: sopra lo zero termico (in questa stagione 2-3 km) sono neve, ghiaccio e graupel (neve tonda) che restano sospesi o cadono e fondono scendendo; solo vicino al suolo diventano la pioggia che arriva a terra. I nuclei rossi e viola in alto (oltre 45-50 dBZ sopra i 5-6 km) indicano quasi sempre grandine dentro il temporale. Le quote (CAPPI, una ogni km) sono ricostruite dalla Protezione Civile combinando le scansioni dei radar a diverse inclinazioni: lontano dai radar il fascio passa più in alto e le quote basse possono mancare; dietro le montagne il radar vede meno.
     </details>
   </section>
 

@@ -10,11 +10,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      - uses: actions/checkout@v4
+        with:
+          path: codice
       - name: Prendo la pagina pubblicata
         run: |
           git init -q pagina && cd pagina
           git fetch -q --depth 1 "https://github.com/${{ github.repository }}.git" risultati && git checkout -q FETCH_HEAD
           ls radar3d || echo "radar3d mancante"
+          cp ../codice/pagina/* .      # la pagina del ramo che si sta provando, con i dati pubblicati
       - name: Apro la pagina in Chrome e faccio le schermate
         run: |
           pip install -q playwright
@@ -29,17 +33,23 @@ jobs:
               pg.on("console", lambda m: log.append(m.type + " " + m.text))
               pg.goto("http://localhost:8000/index.html"); pg.wait_for_timeout(4000)
               pg.screenshot(path="base.png")
-              pg.click("[data-scheda=sez-3d]"); pg.wait_for_timeout(12000)
-              pg.locator("#sez-3d").screenshot(path="radar3d.png")
-              pg.fill("#t3-soglia", "40"); pg.dispatch_event("#t3-soglia", "input"); pg.wait_for_timeout(3000)
-              pg.locator("#v3d").screenshot(path="radar3d_forte.png")
-              pg.fill("#t3-soglia", "15"); pg.dispatch_event("#t3-soglia", "input")
+              pg.click("[data-scheda=sez-3d]"); pg.wait_for_timeout(15000)
+              pg.locator("#sez-3d").screenshot(path="r3_volume.png")
+              for m, nome in (("1", "olografico"), ("2", "iso"), ("3", "sezione")):
+                  pg.click(f"[data-modo3='{m}']"); pg.wait_for_timeout(5000)
+                  pg.locator("#sez-3d").screenshot(path=f"r3_{nome}.png")
+              pg.click("[data-modo3='0']"); pg.wait_for_timeout(1500)
               bb = pg.locator("#v3d").bounding_box()
               pg.mouse.move(bb["x"] + bb["width"] / 2, bb["y"] + bb["height"] / 2)
-              for _ in range(12):
+              for _ in range(8):
                   pg.mouse.wheel(0, -400); pg.wait_for_timeout(250)
-              pg.wait_for_timeout(8000)
-              pg.locator("#v3d").screenshot(path="radar3d_zoom.png")
+              pg.wait_for_timeout(6000)
+              pg.locator("#v3d").screenshot(path="r3_zoom.png")
+              m = b.new_page(viewport={"width": 390, "height": 844}, device_scale_factor=2)
+              m.on("pageerror", lambda e: log.append("MOBILE ERRORE " + str(e)))
+              m.goto("http://localhost:8000/index.html"); m.wait_for_timeout(3000)
+              m.click("[data-scheda=sez-3d]"); m.wait_for_timeout(15000)
+              m.locator("#sez-3d").screenshot(path="r3_mobile.png")
               open("console.txt", "w").write("\n".join(log))
               b.close()
           PY
