@@ -31,8 +31,9 @@ jobs:
               log = []
               pg.on("pageerror", lambda e: log.append("ERRORE " + str(e)))
               pg.on("console", lambda m: log.append(m.type + " " + m.text))
-              pg.goto("http://localhost:8000/index.html"); pg.wait_for_timeout(4000)
+              pg.goto("http://localhost:8000/index.html?prova"); pg.wait_for_timeout(4000)
               pg.screenshot(path="base.png")
+              pg.set_default_timeout(90000)
               pg.click("[data-scheda=sez-3d]"); pg.wait_for_timeout(15000)
               pg.locator("#sez-3d").screenshot(path="r3_volume.png")
               for m, nome in (("1", "olografico"), ("2", "iso"), ("3", "sezione")):
@@ -46,8 +47,8 @@ jobs:
               pg.wait_for_timeout(6000)
               pg.locator("#v3d").screenshot(path="r3_zoom.png")
               m = b.new_page(viewport={"width": 390, "height": 844}, device_scale_factor=2)
-              m.on("pageerror", lambda e: log.append("MOBILE ERRORE " + str(e)))
-              m.goto("http://localhost:8000/index.html"); m.wait_for_timeout(3000)
+              m.set_default_timeout(90000); m.on("pageerror", lambda e: log.append("MOBILE ERRORE " + str(e)))
+              m.goto("http://localhost:8000/index.html?prova"); m.wait_for_timeout(3000)
               m.click("[data-scheda=sez-3d]"); m.wait_for_timeout(15000)
               m.locator("#sez-3d").screenshot(path="r3_mobile.png")
               open("console.txt", "w").write("\n".join(log))

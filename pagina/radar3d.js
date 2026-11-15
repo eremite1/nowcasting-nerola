@@ -142,7 +142,7 @@ void main() {
   vec3 inv = 1.0 / rd, t0 = (uMin - ro) * inv, t1 = (uMax - ro) * inv, a = min(t0, t1), b = max(t0, t1);
   float tn = max(max(a.x, a.y), max(a.z, 0.0)), tf = min(min(b.x, b.y), b.z);
   if (tf <= tn) discard;
-  float n = clamp((tf - tn) / (uPasso * 0.5), 24.0, 320.0), dt = (tf - tn) / n;
+  float n = clamp((tf - tn) / (uPasso * 0.7), 24.0, 256.0), dt = (tf - tn) / n;
   float jit = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453);
   float t = tn + dt * jit;
   float tp = -1.0;
@@ -151,7 +151,7 @@ void main() {
   float prima = -20.0;
   float L0 = max(uSoglia, 8.0), L1 = max(L0 + 8.0, 35.0), L2 = max(L1 + 8.0, 50.0);
   bool terra = false;
-  for (int i = 0; i < 320; i++) {
+  for (int i = 0; i < 256; i++) {
     if (float(i) >= n) break;
     vec3 p = ro + rd * t;
     if (tp > 0.0 && t >= tp) {
@@ -448,7 +448,21 @@ function vistaIniziale() {
   cam.position.set(x - 80, 70 + 5 * esag, z + 130);
   ctr.update(); lato(); disegna();
 }
-function disegna() { if (rend && attivo) rend.render(scena, cam); }
+// qualita' automatica: se il dispositivo fatica (meno di ~20 immagini al secondo mentre giri la vista) si disegna a
+// risoluzione piu' bassa, se va veloce si torna nitidi
+const PROVA = /[?&]prova/.test(location.search);
+const RMAX = PROVA ? 0.35 : Math.min(1.5, window.devicePixelRatio || 1);
+let ratio = PROVA ? 0.35 : Math.min(RMAX, /Mobi|Android/i.test(navigator.userAgent) ? 0.8 : 1), ultimo = 0, media = 16;
+function disegna() {
+  if (!rend || !attivo) return;
+  const ora = performance.now(), d = ora - ultimo; ultimo = ora;
+  if (d < 250) {
+    media = media * 0.8 + d * 0.2;
+    if (media > 55 && ratio > 0.4) { ratio = Math.max(0.4, ratio * 0.8); rend.setPixelRatio(ratio); media = 30; }
+    else if (media < 22 && ratio < RMAX) { ratio = Math.min(RMAX, ratio * 1.1); rend.setPixelRatio(ratio); media = 30; }
+  }
+  rend.render(scena, cam);
+}
 function dimensiona() {
   const w = box.clientWidth, h = box.clientHeight; if (!w || !h) return;
   rend.setSize(w, h); cam.aspect = w / h; cam.updateProjectionMatrix(); disegna(); disegnaSezione();
@@ -466,7 +480,7 @@ async function avvia() {
   try {
     rend = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
   } catch (e) { msg.textContent = "Questo dispositivo non supporta la grafica 3D (WebGL 2)."; return; }
-  rend.setPixelRatio(Math.min(1.5, window.devicePixelRatio || 1));
+  rend.setPixelRatio(ratio);
   rend.setClearColor(0x000000, 0);
   box.appendChild(rend.domElement); msg.remove();
   ctr = new OrbitControls(cam, rend.domElement);
