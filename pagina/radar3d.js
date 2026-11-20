@@ -117,6 +117,9 @@ function quotaIn(x, z) {
 }
 
 // ---------------------------------------------------------------- il volume (shader)
+// IMPORTANTE (Chrome su PC Windows): dentro il ciclo si legge con textureLod e non con texture. Su Windows Chrome
+// traduce lo shader per DirectX, che con texture() dentro un ciclo e' costretto a "srotolare" tutti i 256 passi:
+// lo shader diventa enorme, la compilazione blocca la scheda grafica e Chrome si impalla. Con textureLod il ciclo resta un ciclo.
 const VERT = `
 varying vec3 vW;
 void main() { vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`;
@@ -127,9 +130,9 @@ uniform vec3 uMin; uniform vec3 uMax; uniform vec2 uDom;
 uniform float uEsag; uniform float uSoglia; uniform float uModo; uniform float uAsse; uniform float uTaglio; uniform float uPasso;
 varying vec3 vW;
 vec3 tc(vec3 p) { return vec3((p.x + uDom.x * 0.5) / uDom.x, (p.z + uDom.y * 0.5) / uDom.y, (p.y / uEsag - 0.5) / 10.0); }
-float dbz(vec3 p) { return texture(uVol, tc(p)).r * 85.0 - 12.0; }
-float suolo(vec3 p) { return texture(uTer, vec2((p.x + uDom.x * 0.5) / uDom.x, (p.z + uDom.y * 0.5) / uDom.y)).r * 3.06 * uEsag; }
-vec3 pal(float d) { return texture(uPal, vec2(clamp((d + 10.0) / 80.0, 0.0, 1.0), 0.5)).rgb; }
+float dbz(vec3 p) { return textureLod(uVol, tc(p), 0.0).r * 85.0 - 12.0; }
+float suolo(vec3 p) { return textureLod(uTer, vec2((p.x + uDom.x * 0.5) / uDom.x, (p.z + uDom.y * 0.5) / uDom.y), 0.0).r * 3.06 * uEsag; }
+vec3 pal(float d) { return textureLod(uPal, vec2(clamp((d + 10.0) / 80.0, 0.0, 1.0), 0.5), 0.0).rgb; }
 vec3 normale(vec3 p, float d) {
   float ex = uPasso, ey = 0.5 * uEsag;
   vec3 g = vec3(dbz(p + vec3(ex, 0.0, 0.0)) - d, (dbz(p + vec3(0.0, ey, 0.0)) - d) * ex / ey, dbz(p + vec3(0.0, 0.0, ex)) - d);
@@ -456,8 +459,9 @@ function disegna() {
   const ora = performance.now(), d = ora - ultimo; ultimo = ora;
   if (d < 250) {
     media = media * 0.8 + d * 0.2;
+    const tetto = Math.min(RMAX, Math.sqrt(2.0e6 / Math.max(1, box.clientWidth * box.clientHeight)));
     if (media > 55 && ratio > 0.4) { ratio = Math.max(0.4, ratio * 0.8); rend.setPixelRatio(ratio); media = 30; }
-    else if (media < 22 && ratio < RMAX) { ratio = Math.min(RMAX, ratio * 1.1); rend.setPixelRatio(ratio); media = 30; }
+    else if (media < 22 && ratio < tetto) { ratio = Math.min(tetto, ratio * 1.1); rend.setPixelRatio(ratio); media = 30; }
   }
   rend.render(scena, cam);
 }
@@ -476,10 +480,18 @@ async function avvia() {
   const sole = new THREE.DirectionalLight(0xffffff, 1.3); sole.position.set(-120, 200, 80); scena.add(sole);
   cam = new THREE.PerspectiveCamera(42, 1, 0.5, 3000);
   try {
-    rend = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+    rend = new THREE.WebGLRenderer({ antialias: !/Win|Mac|Linux x86/.test(navigator.platform) || (window.devicePixelRatio || 1) < 1.5, alpha: true, powerPreference: "high-performance" });
   } catch (e) { msg.textContent = "Questo dispositivo non supporta la grafica 3D (WebGL 2)."; return; }
+  // su schermi grandi si limita il numero di punti da calcolare (ogni punto attraversa il volume fino a 256 volte)
+  const wb = box.clientWidth || 1000, hb = box.clientHeight || 600;
+  ratio = Math.min(ratio, Math.sqrt(1.1e6 / (wb * hb)));
   rend.setPixelRatio(ratio);
   rend.setClearColor(0x000000, 0);
+  rend.domElement.addEventListener("webglcontextlost", (e) => {
+    e.preventDefault(); attivo = false;
+    const m = document.createElement("div"); m.style.cssText = "position:absolute;inset:auto 0 45%;text-align:center;color:#dff6ff;font-weight:600;padding:12px";
+    m.textContent = "La scheda grafica si è fermata: ricarica la pagina per riaprire il radar 3D."; box.appendChild(m);
+  });
   box.appendChild(rend.domElement); msg.remove();
   ctr = new OrbitControls(cam, rend.domElement);
   ctr.enableDamping = true; ctr.dampingFactor = 0.08; ctr.maxPolarAngle = Math.PI / 2.02; ctr.minDistance = 6; ctr.maxDistance = 700;

@@ -217,6 +217,31 @@ def salva_pioggia(valori, percorso, tipo=None, grandine=None):
     im.save(percorso, optimize=True, transparency=bytes(alfa + [0] * (256 - len(alfa))))
 
 
+# riflettivita' radar (dBZ) per i prodotti VMI e CAPPI: stessa scala del radar 3D
+SOGLIE_DBZ = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65]
+COLORI_DBZ = ["#2a5fb8", "#2a8fe0", "#22c3e6", "#19c37d", "#4fcf3a", "#9be02a", "#f1e11c", "#ffae1a", "#ff6a1a", "#e8172c",
+              "#b0005a", "#d63cff", "#ffffff"]
+PRODOTTI = [("VMI", "Riflettività massima", "il valore più alto lungo la verticale: mostra i nuclei dei temporali"),
+            ("CAPPI2", "Riflettività a 2 km", "l'eco del radar a 2.000 m di quota"),
+            ("CAPPI5", "Riflettività a 5 km", "l'eco a 5.000 m: se è forte, il temporale è alto e vigoroso"),
+            ("POH", "Probabilità di grandine", "probabilità che cada grandine, stimata dal radar")]
+SOGLIE_POH = [10, 20, 30, 40, 50, 60, 70, 80, 90]
+COLORI_POH = ["#fff3a8", "#ffe066", "#ffc300", "#ff9200", "#ff5800", "#eb1c1c", "#bd0016", "#d01fc8", "#8e10b8"]
+
+
+def salva_scala(valori, percorso, soglie, colori):
+    """Immagine a gradini con una scala qualsiasi; trasparente sotto la prima soglia e dove manca il dato."""
+    v = np.nan_to_num(valori, nan=-999.0)
+    idx = np.searchsorted(soglie, v, side="right").astype(np.uint8)
+    pal = [0, 0, 0]
+    for c in colori:
+        pal += list(hex_rgb(c))
+    alfa = [0] + [235] * len(colori)
+    im = Image.fromarray(idx, "P")
+    im.putpalette(pal + [0] * (768 - len(pal)))
+    im.save(percorso, optimize=True, transparency=bytes(alfa + [0] * (256 - len(alfa))))
+
+
 def salva_accumulo(valori, percorso):
     """Pioggia caduta (mm) a gradini, colori pieni; trasparente dove non e' caduto nulla."""
     idx = np.zeros(valori.shape, dtype=np.uint8)
@@ -370,13 +395,15 @@ def confini(zona, sf, percorso, massimo=40, scuro=False):
     fig.patch.set_alpha(0)
     linea = "#f2f2f2" if scuro else "#1a1a1a"
     acqua = "#8cc8ff" if scuro else "#2a6cc7"
-    stili = [("comuni", dict(colors="#d0d0d0" if scuro else "#3d3d3d", linewidths=0.35, alpha=0.35 if scuro else 0.45))
+    # linee sottili e grigie (non nere): una carta pulita, come quelle dei servizi radar professionali
+    linea = "#f2f2f2" if scuro else "#2e3742"
+    stili = [("comuni", dict(colors="#d0d0d0" if scuro else "#5a6573", linewidths=0.3, alpha=0.35 if scuro else 0.3))
              if zona.dettaglio else None,
-             ("province", dict(colors=linea, linewidths=0.9, linestyles=(0, (5, 3)), alpha=0.85)),
-             ("regioni", dict(colors=linea, linewidths=1.5, alpha=0.9)),
-             ("laghi", dict(colors=acqua, linewidths=0.8)),
-             ("fiumi", dict(colors=acqua, linewidths=0.7, alpha=0.6 if scuro else 0.8)),
-             ("costa", dict(colors=linea, linewidths=1.0))]
+             ("province", dict(colors=linea, linewidths=0.7, linestyles=(0, (4, 3)), alpha=0.8 if scuro else 0.55)),
+             ("regioni", dict(colors=linea, linewidths=1.15, alpha=0.9 if scuro else 0.8)),
+             ("laghi", dict(colors=acqua, linewidths=0.7, alpha=0.8)),
+             ("fiumi", dict(colors=acqua, linewidths=0.6, alpha=0.6 if scuro else 0.55)),
+             ("costa", dict(colors=linea if scuro else "#4f6f8f", linewidths=0.8, alpha=0.9))]
     for s in stili:
         if s and sf.get(s[0]):
             ax.add_collection(LineCollection(linee_px(zona, sf[s[0]]), zorder=3, **s[1]))
@@ -431,6 +458,22 @@ def fondo_grigio(da, percorso):
     Image.fromarray((np.clip(rgb, 0, 1) * 255).astype(np.uint8), "RGB").save(percorso, quality=90, optimize=True)
 
 
+def fondo_chiaro(da, percorso):
+    """Fondo del radar: terra grigio chiarissimo con un velo di rilievo, mare azzurro tenue (stile pulito delle carte
+    radar professionali): i colori della pioggia risaltano e confini e nomi si leggono bene."""
+    from scipy import ndimage
+    a = np.asarray(Image.open(da).convert("RGB"), dtype="float64") / 255
+    lum = a @ np.array([0.30, 0.59, 0.11])
+    mare = (a[..., 2] > a[..., 0] + 0.12) & (a[..., 2] > a[..., 1])
+    mare = ndimage.binary_opening(mare, iterations=1)
+    terra = ~mare
+    rel = (lum - lum[terra].mean()) / max(lum[terra].std(), 1e-6) if terra.any() else lum * 0
+    rgb = np.array([0.925, 0.928, 0.915])[None, None, :] * (1 + 0.075 * np.clip(rel, -2.5, 2.5)[..., None])
+    dm = ndimage.gaussian_filter(mare.astype("float64"), 1.0)[..., None]
+    rgb = rgb * (1 - dm) + np.array([0.80, 0.86, 0.91]) * dm
+    Image.fromarray((np.clip(rgb, 0, 1) * 255).astype(np.uint8), "RGB").save(percorso, quality=90, optimize=True)
+
+
 def fondo(zona, dem, percorso):
     """Mappa a colori naturali con il rilievo (vedi nubi.mappa_naturale)."""
     import nubi
@@ -452,7 +495,7 @@ def ora_locale(iso):
 
 def composito(cartella, file_pioggia, titolo, sottotitolo, percorso):
     """fondo + pioggia + confini + una fascia con titolo e legenda: immagine unica pronta da pubblicare."""
-    base = Image.open(cartella / "mappa_grigia.jpg").convert("RGBA")   # stesso fondo grigio della pagina
+    base = Image.open(cartella / ("mappa_radar.jpg" if (cartella / "mappa_radar.jpg").exists() else "mappa_grigia.jpg")).convert("RGBA")
     if file_pioggia:
         base.alpha_composite(Image.open(file_pioggia).convert("RGBA"))
     base.alpha_composite(Image.open(cartella / "confini.png").convert("RGBA"))
@@ -580,6 +623,16 @@ def main():
         except Exception as e:  # noqa: BLE001
             print("ATTENZIONE: accumuli non leggibili:", e, file=sys.stderr)
     indice["accumuli"] = {"scala": [[s_, c_] for s_, c_ in zip(SOGLIE_ACC, COLORI_ACC)], "prodotti": []}
+    prod_radar = {}
+    if Path(f"{a.dati}/prodotti.pkl").exists():
+        try:
+            with open(f"{a.dati}/prodotti.pkl", "rb") as f:
+                prod_radar = pickle.load(f)
+        except Exception as e:  # noqa: BLE001
+            print("ATTENZIONE: prodotti radar non leggibili:", e, file=sys.stderr)
+    # la probabilita' di grandine e' gia' scaricata per il tipo di precipitazione: si mostra anche come prodotto
+    if gr and gr.get("campi") is not None and len(gr["campi"]):
+        prod_radar.setdefault("POH", gr)
     with open(f"{a.dati}/tipo.pkl", "wb") as f:
         pickle.dump({"nerola": tipo_nerola, "grandine": indice["grandine"], **extra}, f)
     statici = Path(__file__).resolve().parent / "statici"
@@ -604,9 +657,12 @@ def main():
             for n_ in ("mappa.jpg", "mappa_grigia.jpg", "confini.png", "confini_bianchi.png"):
                 if (statici / chiave / n_).exists():
                     shutil.copy2(statici / chiave / n_, cart / n_)
+            if (cart / "mappa.jpg").exists():
+                fondo_chiaro(cart / "mappa.jpg", cart / "mappa_radar.jpg")
         else:
             fondo(z, dem, cart / "mappa.jpg")
             fondo_grigio(cart / "mappa.jpg", cart / "mappa_grigia.jpg")
+            fondo_chiaro(cart / "mappa.jpg", cart / "mappa_radar.jpg")
             confini(z, sf, cart / "confini.png", massimo=45 if z.dettaglio else 20)
             confini(z, sf, cart / "confini_bianchi.png", massimo=45 if z.dettaglio else 20, scuro=True)
         voce = {"nome": z.nome, "larghezza": z.W, "altezza": z.H, "riquadro": [z.lon0, z.lon1, z.lat0, z.lat1],
@@ -655,6 +711,27 @@ def main():
                 prod = {"tipo": tipo_acc, "ore": ore_acc, "ora": d["tempi"][-1], "file": {}, "massimo": {}}
                 indice["accumuli"]["prodotti"].append(prod)
             prod["file"][chiave] = f"accumuli/{tipo_acc}.png"
+            prod["massimo"][chiave] = round(float(np.nanmax(v)), 1) if np.isfinite(v).any() else 0.0
+        # altri prodotti del radar (ultimo scatto): riflettivita' massima, a 2 e 5 km, probabilita' di grandine
+        for tipo_p, nome_p, descr_p in PRODOTTI:
+            dp = prod_radar.get(tipo_p)
+            if dp and solo_oss:
+                dp = dp.get("italia")
+            if not dp or not len(dp.get("campi", [])):
+                continue
+            (cart / "accumuli").mkdir(exist_ok=True)
+            campo = np.asarray(dp["campi"][-1], dtype="float32")
+            if tipo_p == "POH" and np.nanmax(np.nan_to_num(campo)) <= 1.0 + 1e-6:
+                campo = campo * 100.0
+            v = ricampiona(campo, z.mappa_da(dp["griglia"]))
+            sg, co, un = (SOGLIE_POH, COLORI_POH, "%") if tipo_p == "POH" else (SOGLIE_DBZ, COLORI_DBZ, "dBZ")
+            salva_scala(v, cart / "accumuli" / f"{tipo_p}.png", sg, co)
+            prod = next((p_ for p_ in indice["accumuli"]["prodotti"] if p_["tipo"] == tipo_p), None)
+            if prod is None:
+                prod = {"tipo": tipo_p, "nome": nome_p, "descr": descr_p, "unita": un, "ora": dp["tempi"][-1],
+                        "scala": [[s_, c_] for s_, c_ in zip(sg, co)], "file": {}, "massimo": {}, "radar": True}
+                indice["accumuli"]["prodotti"].append(prod)
+            prod["file"][chiave] = f"accumuli/{tipo_p}.png"
             prod["massimo"][chiave] = round(float(np.nanmax(v)), 1) if np.isfinite(v).any() else 0.0
         ultimo = voce["radar"][-1] if voce["radar"] else None
         loc = ora_locale(t0)

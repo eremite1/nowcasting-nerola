@@ -198,6 +198,18 @@
   .schede button small { display: block; font-weight: 400; font-size: .8rem; color: var(--muto); margin-top: 2px; }
   .schede button[aria-selected="true"] { border-color: var(--accento); background: var(--evid); color: var(--accento); }
   section[hidden] { display: none !important; }
+  .esperti-box { margin-top: 14px; border: 1px solid var(--linea); border-radius: 14px; background: var(--card); }
+  .esperti-box > summary { cursor: pointer; padding: 14px 16px; font-weight: 700; list-style: none; }
+  .esperti-box > summary::-webkit-details-marker { display: none; }
+  .esperti-box > summary::after { content: " ▾"; color: var(--muto); }
+  .esperti-box[open] > summary::after { content: " ▴"; }
+  .esperti-box > section { margin: 0 12px 12px; }
+  /* sul telefono la mappa viene subito: i comandi stanno sotto l'animazione */
+  #sez-radar { display: flex; flex-direction: column; }
+  @media (max-width: 700px) {
+    #sez-radar .comandi-visore { order: 5; margin-top: 12px; }
+    #sez-radar .legende { order: 6; }
+  }
 </style>
 </head>
 <body>
@@ -242,9 +254,14 @@
           <button data-sopra="top" aria-pressed="false">🔥 Cime dei temporali</button>
         </div>
       </div>
+      <div class="riga-com"><span class="etich">Prodotto radar</span>
+        <div class="gruppo" role="group" aria-label="Prodotto radar">
+          <button data-prod="" aria-pressed="true">🌧️ Pioggia adesso e prevista</button>
+          <span id="r-prodotti" class="gruppo-in"></span>
+        </div>
+      </div>
       <div class="riga-com"><span class="etich">Pioggia caduta</span>
         <div class="gruppo" role="group" aria-label="Pioggia caduta">
-          <button data-prod="" aria-pressed="true">Adesso e prevista</button>
           <span id="r-accumuli" class="gruppo-in"></span>
         </div>
       </div>
@@ -284,7 +301,7 @@
       <span>· più fredda e colorata = nube più alta, temporale più forte</span>
     </div>
     <div class="legende" id="r-leg-acc" hidden>
-      <div class="scala-cont"><span>pioggia caduta mm</span><div class="barra-col" data-scala-acc></div></div>
+      <div class="scala-cont"><span id="r-leg-acc-tit">pioggia caduta mm</span><div class="barra-col" data-scala-acc></div></div>
     </div>
   </section>
 
@@ -442,6 +459,8 @@
     <div class="allerte" id="allerte"></div>
   </section>
 
+  <details class="esperti-box">
+    <summary>🔬 Per gli esperti: come lavora la previsione e quanto ci azzecca</summary>
   <section class="griglia-sotto">
     <div class="card">
       <h2>Come si muove il tempo</h2>
@@ -482,6 +501,8 @@
     <div class="nota" id="gara-nota"></div>
   </section>
 </main>
+  </details>
+
 <footer>
   Satellite: contains modified EUMETSAT Meteosat (MTG) data 2026, EUMETView (CC BY 4.0). Radar: Dipartimento della Protezione Civile, piattaforma Radar-DPC (dati elaborati).
   Modello: WRF su dati ECMWF IFS open data (CC BY 4.0). Rilievo: Terrain Tiles (SRTM/GMTED) · Confini: ISTAT, Natural Earth · Nomi: GeoNames · Mappa interattiva: Leaflet, fondi di Esri, OpenTopoMap, CARTO e © OpenStreetMap.
@@ -672,14 +693,14 @@
     const [A, B, f] = coppia(L); if (!A) return;
     const z = S.radar.zone[R.zona], a = A.z[R.zona], b = B.z[R.zona];
     if (!z || !a || !b) return;
-    ctx.save(); ctx.fillStyle = "#666b72"; ctx.fillRect(0, 0, W, H); ctx.scale(W / z.larghezza, H / z.altezza);
+    ctx.save(); ctx.fillStyle = "#e9ecea"; ctx.fillRect(0, 0, W, H); ctx.scale(W / z.larghezza, H / z.altezza);
     const ZW = z.larghezza, ZH = z.altezza;
     const strato = (src, alfa) => { const im = img(src); if (pronta(im) && alfa > 0.001) { ctx.globalAlpha = alfa; ctx.drawImage(im, 0, 0, ZW, ZH); } };
     const pa = prodAcc();
     const sat = R.fondo && !pa;
     if (sat) livello(ctx, "sfondo", a.sfondo, b.sfondo, f, ZW, ZH);
-    else strato(R.zona + "/mappa_grigia.jpg", 1);
-    if (pa) { strato(R.zona + "/" + pa.file[R.zona], 1); ctx.globalAlpha = 1; strato(R.zona + "/confini.png", 1); ctx.restore(); return; }
+    else strato(R.zona + (pronta(img(R.zona + "/mappa_radar.jpg")) ? "/mappa_radar.jpg" : "/mappa_grigia.jpg"), 1);
+    if (pa) { strato(R.zona + "/" + pa.file[R.zona], 1); ctx.globalAlpha = 1; strato(R.zona + "/confini.png", 1); ctx.restore(); firma(ctx, W, H, L, pa); return; }
     if (R.sopra.top) {
       const ta = topVicino(R.zona, A.t), tb = topVicino(R.zona, B.t);
       livello(ctx, "top", ta, tb, f, ZW, ZH, (im, al) => { const c = soloColori(im === img(ta) ? ta : tb); if (c) { ctx.globalAlpha = al; ctx.drawImage(c, 0, 0, ZW, ZH); } });
@@ -696,16 +717,54 @@
       });
     }
     ctx.restore();
+    firma(ctx, W, H, L, null);
+  }
+  // scritte dentro l'immagine (restano anche in uno screenshot o nell'immagine copiata): ora, cosa si vede, fonte e sito
+  function pillola(ctx, x, y, testo, k, sfondo, colore, destra) {
+    ctx.font = "700 " + (12 * k) + "px system-ui, -apple-system, Segoe UI, sans-serif";
+    const w = ctx.measureText(testo).width + 14 * k, h = 22 * k, x0 = destra ? x - w : x;
+    ctx.fillStyle = sfondo; ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(x0, y, w, h, 6 * k); else ctx.rect(x0, y, w, h);
+    ctx.fill(); ctx.fillStyle = colore; ctx.textBaseline = "middle"; ctx.textAlign = "left"; ctx.fillText(testo, x0 + 7 * k, y + h / 2 + 0.5 * k);
+    return w;
+  }
+  function firma(ctx, W, H, L, pa) {
+    const c = ctx.canvas, cw = c.clientWidth || W, k = Math.max(1, W / Math.max(1, cw)) * (cw < 520 ? 0.8 : 1), m = 9 * k;
+    const p = L.passi[Math.round(L.pos)]; if (!p) return;
+    ctx.save(); ctx.globalAlpha = 1;
+    // in alto a sinistra: quando e cosa
+    let testo, stato, col;
+    if (pa) { const t = data(pa.ora); testo = ora(t) + " · " + (pa.nome || ("pioggia caduta in " + pa.ore + (pa.ore === 1 ? " ora" : " ore"))); stato = "MISURATO"; col = "#1d6fd6"; }
+    else {
+      const l = locale(p.t); testo = ora(p.t) + " · " + GG[l.getDay()] + " " + l.getDate() + " " + MESI[l.getMonth()];
+      if (p.tipo === "prev") { const h = Math.floor(p.m / 60), mm = p.m % 60; stato = "PREVISIONE +" + (h ? h + "h" : "") + (mm ? (h ? " " : "") + mm + "min" : ""); col = "#d9480f"; }
+      else { stato = "OSSERVATO"; col = "#1d6fd6"; }
+    }
+    const w1 = pillola(ctx, m, m, testo, k, "rgba(15,23,34,.82)", "#ffffff", false);
+    pillola(ctx, m + w1 + 6 * k, m, stato, k, col, "#ffffff", false);
+    // in basso: fonte a sinistra, firma del sito a destra
+    pillola(ctx, m, H - m - 22 * k, cw < 520 ? "Radar DPC" : "Radar Protezione Civile · elaborazione MeteoNerola", k * 0.82, "rgba(255,255,255,.78)", "#33404d", false);
+    ctx.font = "800 " + (15 * k) + "px system-ui, -apple-system, Segoe UI, sans-serif";
+    const marchio = "meteonerola.it", wm = ctx.measureText(marchio).width + 34 * k, hm = 28 * k, xm = W - m - wm, ym = H - m - hm;
+    ctx.fillStyle = "rgba(15,23,34,.82)"; ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(xm, ym, wm, hm, 7 * k); else ctx.rect(xm, ym, wm, hm); ctx.fill();
+    // piccola goccia blu come logo
+    const gx = xm + 14 * k, gy = ym + hm / 2;
+    ctx.fillStyle = "#3aa0ff"; ctx.beginPath(); ctx.moveTo(gx, gy - 8 * k); ctx.bezierCurveTo(gx + 7 * k, gy, gx + 6 * k, gy + 7 * k, gx, gy + 7 * k);
+    ctx.bezierCurveTo(gx - 6 * k, gy + 7 * k, gx - 7 * k, gy, gx, gy - 8 * k); ctx.fill();
+    ctx.fillStyle = "#ffffff"; ctx.textBaseline = "middle"; ctx.textAlign = "left"; ctx.fillText(marchio, xm + 26 * k, gy + 0.5 * k);
+    ctx.restore();
   }
   const LR = Lettore("r", (L) => {
     const c = $("r-tela"); disegnaRadar(c.getContext("2d"), c.width, c.height, L);
     const pa = prodAcc();
     if (pa) {   // pioggia caduta: immagine fissa, al posto dell'ora l'intervallo misurato
       const fine = data(pa.ora), ini = new Date(fine.getTime() - pa.ore * 3600000), l = locale(fine);
-      $("r-ora").textContent = "dalle " + ora(ini) + " alle " + ora(fine);
+      $("r-ora").textContent = pa.radar ? "ore " + ora(fine) : "dalle " + ora(ini) + " alle " + ora(fine);
       $("r-giorno").textContent = GG[l.getDay()] + " " + l.getDate() + " " + MESI[l.getMonth()];
       const m = pa.massimo && pa.massimo[R.zona];
-      $("r-etichetta").className = "etichetta"; $("r-etichetta").textContent = "CADUTA IN " + pa.ore + (pa.ore === 1 ? " ORA" : " ORE") + (m ? " · MAX " + String(m).replace(".", ",") + " mm" : "");
+      $("r-etichetta").className = "etichetta";
+      $("r-etichetta").textContent = pa.radar ? pa.nome.toUpperCase() + (m ? " · MAX " + String(Math.round(m)) + " " + pa.unita : "")
+        : "CADUTA IN " + pa.ore + (pa.ore === 1 ? " ORA" : " ORE") + (m ? " · MAX " + String(m).replace(".", ",") + " mm" : "");
     }
     return !!pa;
   }, () => { const n = { visibile: "SATELLITE HD", colori: "COLORI REALI", infrarosso: "INFRAROSSO" }[R.fondo];
@@ -715,20 +774,28 @@
     return [R.fondo ? s_.sfondo : null, R.sopra.pioggia ? s_.pioggia : null].every((x) => !x || pronta(img(x))); };
   function scegliProdotto(tipo) {
     R.acc = tipo || "";
-    document.querySelectorAll("[data-prod]").forEach((x) => x.setAttribute("aria-pressed", x.dataset.prod === R.acc));
+    document.querySelectorAll("#sez-radar [data-prod]").forEach((x) => x.setAttribute("aria-pressed", x.dataset.prod === R.acc));
     $("r-barra").hidden = !!R.acc; legende();
     if (R.acc) LR.avvia(false);
     const pa = prodAcc(); if (pa) img(R.zona + "/" + pa.file[R.zona]);
     LR.ridisegna();
   }
+  const BREVI = { VMI: "📡 Riflettività max", CAPPI2: "Eco a 2 km", CAPPI5: "Eco a 5 km", POH: "🧊 Grandine %" };
   function pulsantiAccumuli() {
-    const box = $("r-accumuli"), pr = (S.radar.accumuli && S.radar.accumuli.prodotti) || [];
-    box.innerHTML = pr.map((p) => '<button data-prod="' + p.tipo + '" aria-pressed="' + (p.tipo === R.acc) + '">' + p.ore + (p.ore === 1 ? " ora" : " ore") + "</button>").join("") ||
-      '<button disabled>non disponibile</button>';
-    box.parentElement.querySelectorAll("[data-prod]").forEach((b) => { b.onclick = () => scegliProdotto(b.dataset.prod); });
+    const pr = (S.radar.accumuli && S.radar.accumuli.prodotti) || [];
+    const bott = (p, t) => '<button data-prod="' + p.tipo + '" aria-pressed="' + (p.tipo === R.acc) + '" title="' + (p.descr || "") + '">' + t + "</button>";
+    $("r-accumuli").innerHTML = pr.filter((p) => !p.radar).map((p) => bott(p, p.ore + (p.ore === 1 ? " ora" : " ore"))).join("") || '<button disabled>non disponibile</button>';
+    $("r-prodotti").innerHTML = pr.filter((p) => p.radar).map((p) => bott(p, BREVI[p.tipo] || p.nome)).join("");
+    document.querySelectorAll("#sez-radar [data-prod]").forEach((b) => { b.onclick = () => scegliProdotto(b.dataset.prod); });
     if (R.acc && !prodAcc()) scegliProdotto("");
   }
   function legende() {
+    const pa = prodAcc();
+    if (pa) {
+      const sc = pa.scala || S.radar.accumuli.scala, et = pa.radar ? sc.map(([v]) => v).filter((v, i) => i % 2 === 0) : [0.2, 2, 6, 15, 30, 60, 100, 200];
+      const g = gradini(sc, et); document.querySelectorAll("[data-scala-acc]").forEach((b) => { b.style.background = g.sfondo; b.innerHTML = g.html; });
+      $("r-leg-acc-tit").textContent = pa.radar ? pa.nome + " (" + pa.unita + ") · " + (pa.descr || "") : "pioggia caduta mm";
+    }
     $("r-leg-int").hidden = !!R.acc || !R.sopra.pioggia; $("r-leg-acc").hidden = !R.acc;
     $("r-leg-top").hidden = !!R.acc || !R.sopra.top;
   }
@@ -742,7 +809,7 @@
     }
     const z = S.radar.zone[R.zona], c = $("r-tela");
     c.width = z.larghezza; c.height = z.altezza; $("r-palco").style.setProperty("--forma", z.larghezza / z.altezza);
-    img(R.zona + "/mappa_grigia.jpg"); img(R.zona + "/confini.png"); img(R.zona + "/confini_bianchi.png");
+    img(R.zona + "/mappa_radar.jpg"); img(R.zona + "/mappa_grigia.jpg"); img(R.zona + "/confini.png"); img(R.zona + "/confini_bianchi.png");
     // con il satellite (come fondo o per le cime dei temporali) si vedono solo le ore osservate: il satellite non ha previsione
     const zs = S.sat && S.sat.zone[R.zona];
     const prodotto = R.fondo || (R.sopra.top ? "topnubi" : "");
@@ -925,7 +992,7 @@
     x.save(); x.translate(0, ALTO);
     const strato = (src, alfa) => { const im = img(src); if (pronta(im) && alfa > 0.001) { x.globalAlpha = alfa; x.drawImage(im, 0, 0, W, H); } };
     const conTop = !!opz.top;
-    if (esperto && a.sfondo) strato(a.sfondo, 1); else strato(zona + (vistaTipo === "radar" ? "/mappa_grigia.jpg" : "/mappa.jpg"), 1);
+    if (esperto && a.sfondo) strato(a.sfondo, 1); else strato(zona + (vistaTipo === "radar" ? (pronta(img(zona + "/mappa_radar.jpg")) ? "/mappa_radar.jpg" : "/mappa_grigia.jpg") : "/mappa.jpg"), 1);
     if (conNubi && !esperto && vistaTipo !== "radar") { strato(a.nubi, 1 - f); strato(b.nubi, f); }
     if (acc) strato(zona + "/" + acc.file[zona], 1);
     else {

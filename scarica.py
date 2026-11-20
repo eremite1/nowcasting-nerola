@@ -29,6 +29,9 @@ import geo
 RIQUADRO_RADAR = (8.3, 17.2, 38.8, 45.4)
 # Pioggia caduta (accumulo in mm) misurata dal radar nelle ultime 1, 3, 6, 12 e 24 ore (prodotti Radar-DPC)
 ACCUMULI = ("SRT1", "CUM3", "CUM6", "CUM12", "CUM24")
+# Altri prodotti del radar della Protezione Civile (solo l'ultimo scatto): riflettivita' massima sulla verticale (VMI) e
+# riflettivita' a quota costante 2 e 5 km (CAPPI), in dBZ
+PRODOTTI_DBZ = ("VMI", "CAPPI2", "CAPPI5")
 # Riquadro del satellite (serve per la taratura delle temperature)
 RIQUADRO_SAT = (10.4, 15.2, 40.3, 43.9)
 # Tutta Italia (solo per le immagini osservate e gli accumuli della zona "Italia"), a 2 km: si ritaglia dagli stessi file
@@ -174,6 +177,26 @@ def main():
     if accumuli:
         with open(out / "accumuli.pkl", "wb") as f:
             pickle.dump(accumuli, f)
+    # altri prodotti del radar (riflettivita'): l'ultimo scatto, se c'e'
+    prodotti = {}
+    for tipo in PRODOTTI_DBZ:
+        nomi = (tipo.replace("CAPPI", "CAPPI_"), tipo) if tipo.startswith("CAPPI") else (tipo,)
+        for nome in nomi:
+            try:
+                d_it = {}
+                d = serie(nome, 0.0, 5, RIQUADRO_SAT, diagnosi, italia=d_it)
+                for dd in [d] + ([d_it] if d_it else []):
+                    dd["campi"] = np.where(dd["campi"] < -30, np.nan, dd["campi"]).astype("float32")   # -9999 = niente dato
+                if d_it:
+                    d["italia"] = d_it
+                prodotti[tipo] = d
+                break
+            except Exception as e:  # noqa: BLE001
+                diagnosi[f"errore_{nome}"] = str(e)[:200]
+                print(f"ATTENZIONE {nome} non disponibile: {e}", file=sys.stderr)
+    if prodotti:
+        with open(out / "prodotti.pkl", "wb") as f:
+            pickle.dump(prodotti, f)
     diagnosi["secondi"] = round(time.time() - inizio, 1)
     (out / "diagnosi.json").write_text(json.dumps(diagnosi, indent=1, default=str))
     print(f"fatto in {diagnosi['secondi']} s")

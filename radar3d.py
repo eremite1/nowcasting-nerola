@@ -16,6 +16,7 @@ sotto il volume si puo' stendere la stessa immagine mappa.jpg.
 """
 import argparse
 import json
+import math
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -90,6 +91,16 @@ def dettaglio(cartella_sfondo, out, precedente):
     return info
 
 
+def _senza_nan(x):
+    if isinstance(x, float) and not math.isfinite(x):
+        return None
+    if isinstance(x, dict):
+        return {k: _senza_nan(v) for k, v in x.items()}
+    if isinstance(x, (list, tuple)):
+        return [_senza_nan(v) for v in x]
+    return x
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--sfondo", default="")
@@ -147,7 +158,8 @@ def main():
             "mappa": "lazio/mappa.jpg", "codifica": "dBZ = (v - 1) / 2 - 10", "diagnosi": diag,
             "celle_con_eco": int((vol > 0).sum()), "terreno": q is not None, "confini": "lazio/confini.png",
             "dettaglio": det}
-    (out / "info.json").write_text(json.dumps(info, ensure_ascii=False))
+    # NaN non e' JSON valido: il browser non leggerebbe il file e il radar 3D non partirebbe
+    (out / "info.json").write_text(json.dumps(_senza_nan(info), ensure_ascii=False))
     print(f"radar 3D: {len(buoni)} quote su 10, {forma[1]}x{forma[0]} celle, {info['celle_con_eco']} con eco, "
           f"valori {diag}")
 
