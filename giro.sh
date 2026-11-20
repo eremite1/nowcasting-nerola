@@ -56,6 +56,7 @@ python "$QUI/notifiche.py" --nuovo "$NUOVO" --precedente "$PUB" >> "$REG" 2>&1 |
 
 cp "$QUI/pagina/index.html" "$NUOVO/index.html"
 cp "$QUI/pagina/radar3d.js" "$NUOVO/radar3d.js"
+cp "$QUI/pagina/gif.js" "$NUOVO/gif.js"
 cp "$DATI/diagnosi.json" "$NUOVO/" 2>/dev/null || true
 touch "$NUOVO/.nojekyll"
 cat > "$NUOVO/LEGGIMI.md" <<'EOT'

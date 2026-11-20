@@ -283,6 +283,7 @@
     <div class="barra" style="justify-content:flex-end">
       <button id="r-copia" title="Copia l'immagine (poi incolla dove vuoi)">📋 Copia</button>
       <button id="r-scarica" title="Salva l'immagine">⬇️ Salva</button>
+      <button id="r-gif" title="Scarica un tratto dell'animazione come GIF animata">🎞️ GIF</button>
     </div>
     <div class="legende" id="r-leg-int">
       <div class="scala-cont"><span>pioggia mm/h</span><div class="barra-col" data-scala></div></div>
@@ -421,6 +422,7 @@
       </div>
       <button id="m-copia" title="Copia l'immagine (poi incolla dove vuoi)">📋 Copia</button>
       <button id="m-scarica" title="Salva l'immagine">⬇️ Salva</button>
+      <button id="m-gif" title="Scarica un tratto dell'animazione come GIF animata">🎞️ GIF</button>
     </div>
     <div class="legende">
       <div class="scala-cont"><span>pioggia mm/h</span><div class="barra-col" data-scala></div></div>
@@ -509,6 +511,7 @@
   Non usare per decisioni di sicurezza: per le allerte fanno fede i bollettini ufficiali della Protezione Civile.
 </footer>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script src="gif.js" defer></script>
 <script>
 (function () {
   "use strict";
@@ -1037,6 +1040,25 @@
         await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]); $(pref + "-copia").textContent = "✅ Copiata"; }
       catch (e) { $(pref + "-copia").textContent = "Usa ⬇️ Salva"; }
       setTimeout(() => { $(pref + "-copia").textContent = "📋 Copia"; }, 2500);
+    };
+    $(pref + "-gif").onclick = () => {
+      L.avvia(false);
+      if (!window.MNGif) return;
+      if (pref === "r" && prodAcc()) { $(pref + "-gif").textContent = "Scegli la sequenza"; setTimeout(() => { $(pref + "-gif").textContent = "🎞️ GIF"; }, 2500); return; }
+      if (L.passi.length < 2) return;
+      const torna = Math.round(L.pos), prova = quale(), rap = prova.height / prova.width;
+      const etich = L.passi.map((p) => { const l = locale(p.t); return GG[l.getDay()] + " " + l.getDate() + " ore " + ora(p.t) + (p.tipo === "prev" ? " (previsione)" : ""); });
+      const attendi = (k) => new Promise((ok) => { const t0 = Date.now(); (function giro() { if (!L.pronto || L.pronto(k) || Date.now() - t0 > 6000) ok(); else setTimeout(giro, 120); })(); });
+      MNGif.finestra({
+        titolo: pref === "r" ? "GIF del radar" : "GIF della mappa",
+        etichette: etich, da: Math.max(0, L.adesso - 12), a: Math.min(L.passi.length - 1, L.adesso + 6),
+        larghezze: [480, 640, 860], ritardo: 350, nomeFile: "meteonerola_" + (pref === "r" ? "radar" : "mappa"),
+        misura: (w) => ({ w, h: Math.round(w * rap) }),
+        disegna: async (k, cv) => {
+          L.vai(k); await attendi(k); L.vai(k);
+          cv.getContext("2d").drawImage(quale(), 0, 0, cv.width, cv.height);
+        }
+      });
     };
     $(pref + "-scarica").onclick = () => {
       L.avvia(false); const cv = quale(), p = L.passi[Math.round(L.pos)];
