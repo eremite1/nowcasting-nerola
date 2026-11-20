@@ -268,7 +268,9 @@ def classifica(st, adesso, giorni):
                     "spiegazione": METODI.get(tipo, {}).get(nome, ("", ""))[1], "scadenze": {}}
             tot_f, tot_n = 0.0, 0
             for minuti in SCADENZE:
-                gg = [v for g, v in per_min.get(str(minuti), {}).items() if g >= da]
+                # i confronti con valori non validi (NaN, per esempio da un giro con dati mancanti) non contano
+                gg = [v for g, v in per_min.get(str(minuti), {}).items()
+                      if g >= da and all(isinstance(x, (int, float)) and math.isfinite(x) for x in v)]
                 n = sum(v[0] for v in gg)
                 if n == 0:
                     continue
