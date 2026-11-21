@@ -1,5 +1,5 @@
 {
- "ora_scarico": "2026-11-21T13:27:01Z",
+ "ora_scarico": "2026-11-21T13:37:01Z",
  "SRI": {
   "primo_file": {
    "proiezione": "Trasversa di Mercatore lon0=12.5 lat0=42.0 k0=1.0",
@@ -14,7 +14,7 @@
    ],
    "metadati": "",
    "minimo": -9999.0,
-   "massimo": 2.8999998569488525,
+   "massimo": 3.1449999809265137,
    "validi": 1.0
   },
   "periodo_min": 5,
@@ -26,11 +26,11 @@
   ],
   "scaricati": 25,
   "chiesti": 25,
-  "ultimo": "2026-11-21T13:15Z",
+  "ultimo": "2026-11-21T13:30Z",
   "valori": [
    0.0,
    0.0,
-   8.539999961853027
+   3.509999990463257
   ]
  },
  "IR_108": {
@@ -46,8 +46,8 @@
     1000.0
    ],
    "metadati": "",
-   "minimo": -46.5,
-   "massimo": 30.0,
+   "minimo": -47.0,
+   "massimo": 30.5,
    "validi": 1.0
   },
   "periodo_min": 5,
@@ -59,7 +59,7 @@
   ],
   "scaricati": 31,
   "chiesti": 31,
-  "ultimo": "2026-11-21T13:15Z",
+  "ultimo": "2026-11-21T13:25Z",
   "valori": [
    -44.0,
    6.5,
@@ -92,7 +92,7 @@
   ],
   "scaricati": 7,
   "chiesti": 7,
-  "ultimo": "2026-11-21T13:20Z",
+  "ultimo": "2026-11-21T13:30Z",
   "valori": [
    0.0,
    0.0,
@@ -146,7 +146,7 @@
    ],
    "metadati": "",
    "minimo": -9999.0,
-   "massimo": 1.209999918937683,
+   "massimo": 1.0099999904632568,
    "validi": 1.0
   },
   "periodo_min": 5,
@@ -158,11 +158,11 @@
   ],
   "scaricati": 1,
   "chiesti": 1,
-  "ultimo": "2026-11-21T13:20Z",
+  "ultimo": "2026-11-21T13:30Z",
   "valori": [
    0.0,
    0.0,
-   0.8899999856948853
+   0.6649999618530273
   ]
  },
  "CUM3": {
@@ -311,7 +311,7 @@
    ],
    "metadati": "",
    "minimo": -9999.0,
-   "massimo": 35.5,
+   "massimo": 33.0,
    "validi": 1.0
   },
   "periodo_min": 5,
@@ -323,11 +323,11 @@
   ],
   "scaricati": 1,
   "chiesti": 1,
-  "ultimo": "2026-11-21T13:20Z",
+  "ultimo": "2026-11-21T13:30Z",
   "valori": [
    -9999.0,
    -9998.0,
-   35.5
+   33.0
   ]
  },
  "CAPPI_2": {
@@ -344,7 +344,7 @@
    ],
    "metadati": "",
    "minimo": -9999.0,
-   "massimo": 28.0,
+   "massimo": 36.0,
    "validi": 1.0
   },
   "periodo_min": 5,
@@ -356,11 +356,11 @@
   ],
   "scaricati": 1,
   "chiesti": 1,
-  "ultimo": "2026-11-21T13:15Z",
+  "ultimo": "2026-11-21T13:25Z",
   "valori": [
    -9999.0,
    -9998.0,
-   28.0
+   36.0
   ]
  },
  "CAPPI_5": {
@@ -377,7 +377,7 @@
    ],
    "metadati": "",
    "minimo": -9999.0,
-   "massimo": 17.5,
+   "massimo": 13.0,
    "validi": 1.0
   },
   "periodo_min": 5,
@@ -389,12 +389,12 @@
   ],
   "scaricati": 1,
   "chiesti": 1,
-  "ultimo": "2026-11-21T13:15Z",
+  "ultimo": "2026-11-21T13:25Z",
   "valori": [
    -9999.0,
    -9998.0,
-   17.5
+   13.0
   ]
  },
- "secondi": 29.5
+ "secondi": 31.1
 }
