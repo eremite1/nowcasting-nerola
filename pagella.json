@@ -1,5 +1,5 @@
 {
- "aggiornata": "2026-11-21T13:00Z",
+ "aggiornata": "2026-11-21T13:10Z",
  "nuovi_confronti": 4,
  "periodi": {
   "7": {
@@ -7,7 +7,7 @@
     "1": {
      "nowcast": 31,
      "persistenza": 23,
-     "casi": 666
+     "casi": 665
     },
     "5": {
      "nowcast": 21,
@@ -19,19 +19,19 @@
     "1": {
      "nowcast": 20,
      "persistenza": 16,
-     "casi": 675
+     "casi": 673
     },
     "5": {
      "nowcast": 12,
      "persistenza": 8,
-     "casi": 466
+     "casi": 464
     }
    },
    "120": {
     "1": {
      "nowcast": 14,
      "persistenza": 10,
-     "casi": 670
+     "casi": 669
     },
     "5": {
      "nowcast": 7,
@@ -57,7 +57,7 @@
     "1": {
      "nowcast": 34,
      "persistenza": 27,
-     "casi": 2566
+     "casi": 2567
     },
     "5": {
      "nowcast": 23,
