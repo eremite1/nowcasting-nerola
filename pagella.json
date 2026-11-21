@@ -1,13 +1,13 @@
 {
- "aggiornata": "2026-11-21T13:35Z",
- "nuovi_confronti": 1,
+ "aggiornata": "2026-11-21T13:45Z",
+ "nuovi_confronti": 4,
  "periodi": {
   "7": {
    "30": {
     "1": {
      "nowcast": 31,
      "persistenza": 23,
-     "casi": 665
+     "casi": 667
     },
     "5": {
      "nowcast": 21,
@@ -24,14 +24,14 @@
     "5": {
      "nowcast": 12,
      "persistenza": 8,
-     "casi": 463
+     "casi": 462
     }
    },
    "120": {
     "1": {
      "nowcast": 14,
      "persistenza": 10,
-     "casi": 670
+     "casi": 669
     },
     "5": {
      "nowcast": 7,
@@ -43,7 +43,7 @@
     "1": {
      "nowcast": 10,
      "persistenza": 7,
-     "casi": 675
+     "casi": 676
     },
     "5": {
      "nowcast": 4,
@@ -56,8 +56,8 @@
    "30": {
     "1": {
      "nowcast": 34,
-     "persistenza": 27,
-     "casi": 2569
+     "persistenza": 26,
+     "casi": 2571
     },
     "5": {
      "nowcast": 23,
@@ -67,9 +67,9 @@
    },
    "60": {
     "1": {
-     "nowcast": 23,
+     "nowcast": 22,
      "persistenza": 18,
-     "casi": 2596
+     "casi": 2597
     },
     "5": {
      "nowcast": 13,
@@ -93,7 +93,7 @@
     "1": {
      "nowcast": 11,
      "persistenza": 9,
-     "casi": 2622
+     "casi": 2623
     },
     "5": {
      "nowcast": 4,
