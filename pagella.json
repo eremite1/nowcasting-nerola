@@ -1,0 +1,152 @@
+{
+ "aggiornata": "2026-11-21T12:40Z",
+ "nuovi_confronti": 6,
+ "periodi": {
+  "7": {
+   "30": {
+    "1": {
+     "nowcast": 31,
+     "persistenza": 23,
+     "casi": 665
+    },
+    "5": {
+     "nowcast": 21,
+     "persistenza": 15,
+     "casi": 444
+    }
+   },
+   "60": {
+    "1": {
+     "nowcast": 20,
+     "persistenza": 16,
+     "casi": 676
+    },
+    "5": {
+     "nowcast": 12,
+     "persistenza": 8,
+     "casi": 468
+    }
+   },
+   "120": {
+    "1": {
+     "nowcast": 14,
+     "persistenza": 10,
+     "casi": 671
+    },
+    "5": {
+     "nowcast": 7,
+     "persistenza": 4,
+     "casi": 475
+    }
+   },
+   "180": {
+    "1": {
+     "nowcast": 10,
+     "persistenza": 7,
+     "casi": 677
+    },
+    "5": {
+     "nowcast": 4,
+     "persistenza": 2,
+     "casi": 479
+    }
+   }
+  },
+  "30": {
+   "30": {
+    "1": {
+     "nowcast": 34,
+     "persistenza": 27,
+     "casi": 2564
+    },
+    "5": {
+     "nowcast": 23,
+     "persistenza": 18,
+     "casi": 1674
+    }
+   },
+   "60": {
+    "1": {
+     "nowcast": 23,
+     "persistenza": 18,
+     "casi": 2593
+    },
+    "5": {
+     "nowcast": 13,
+     "persistenza": 10,
+     "casi": 1722
+    }
+   },
+   "120": {
+    "1": {
+     "nowcast": 15,
+     "persistenza": 12,
+     "casi": 2596
+    },
+    "5": {
+     "nowcast": 6,
+     "persistenza": 5,
+     "casi": 1771
+    }
+   },
+   "180": {
+    "1": {
+     "nowcast": 11,
+     "persistenza": 9,
+     "casi": 2620
+    },
+    "5": {
+     "nowcast": 4,
+     "persistenza": 3,
+     "casi": 1780
+    }
+   }
+  }
+ },
+ "abilita_componenti": {
+  "30": {
+   "casi": 1318,
+   "estrapolazione": 0.614,
+   "casi_estrapolazione": 1318,
+   "evoluzione": 0.613,
+   "casi_evoluzione": 1312,
+   "wrf": 0.038,
+   "casi_wrf": 1272,
+   "fusione": 0.603,
+   "casi_fusione": 1311
+  },
+  "60": {
+   "casi": 1204,
+   "estrapolazione": 0.355,
+   "casi_estrapolazione": 1204,
+   "evoluzione": 0.368,
+   "casi_evoluzione": 1201,
+   "wrf": 0.016,
+   "casi_wrf": 1165,
+   "fusione": 0.342,
+   "casi_fusione": 1200
+  },
+  "120": {
+   "casi": 1069,
+   "estrapolazione": 0.073,
+   "casi_estrapolazione": 1069,
+   "evoluzione": 0.129,
+   "casi_evoluzione": 1036,
+   "wrf": 0.008,
+   "casi_wrf": 1030,
+   "fusione": 0.122,
+   "casi_fusione": 1048
+  },
+  "180": {
+   "casi": 1058,
+   "estrapolazione": -0.054,
+   "casi_estrapolazione": 1058,
+   "evoluzione": -0.028,
+   "casi_evoluzione": 986,
+   "wrf": 0.006,
+   "casi_wrf": 1025,
+   "fusione": -0.003,
+   "casi_fusione": 1008
+  }
+ }
+}
