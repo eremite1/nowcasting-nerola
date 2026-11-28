@@ -1,13 +1,13 @@
 {
- "aggiornata": "2026-11-28T18:30Z",
- "nuovi_confronti": 6,
+ "aggiornata": "2026-11-28T18:35Z",
+ "nuovi_confronti": 1,
  "periodi": {
   "7": {
    "30": {
     "1": {
      "nowcast": 30,
-     "persistenza": 20,
-     "casi": 833
+     "persistenza": 19,
+     "casi": 834
     },
     "5": {
      "nowcast": 20,
@@ -43,7 +43,7 @@
     "1": {
      "nowcast": 6,
      "persistenza": 5,
-     "casi": 822
+     "casi": 821
     },
     "5": {
      "nowcast": 1,
@@ -57,7 +57,7 @@
     "1": {
      "nowcast": 33,
      "persistenza": 25,
-     "casi": 3416
+     "casi": 3417
     },
     "5": {
      "nowcast": 23,
@@ -105,15 +105,15 @@
  },
  "abilita_componenti": {
   "30": {
-   "casi": 1366,
+   "casi": 1367,
    "estrapolazione": 0.629,
-   "casi_estrapolazione": 1366,
+   "casi_estrapolazione": 1367,
    "evoluzione": 0.622,
-   "casi_evoluzione": 1364,
-   "wrf": 0.044,
-   "casi_wrf": 1346,
+   "casi_evoluzione": 1365,
+   "wrf": 0.043,
+   "casi_wrf": 1347,
    "fusione": 0.616,
-   "casi_fusione": 1363
+   "casi_fusione": 1364
   },
   "60": {
    "casi": 1251,
