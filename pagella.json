@@ -1,13 +1,13 @@
 {
- "aggiornata": "2026-11-28T19:45Z",
- "nuovi_confronti": 4,
+ "aggiornata": "2026-11-28T19:55Z",
+ "nuovi_confronti": 5,
  "periodi": {
   "7": {
    "30": {
     "1": {
      "nowcast": 30,
      "persistenza": 20,
-     "casi": 836
+     "casi": 837
     },
     "5": {
      "nowcast": 20,
@@ -19,7 +19,7 @@
     "1": {
      "nowcast": 17,
      "persistenza": 12,
-     "casi": 835
+     "casi": 837
     },
     "5": {
      "nowcast": 9,
@@ -31,7 +31,7 @@
     "1": {
      "nowcast": 8,
      "persistenza": 7,
-     "casi": 819
+     "casi": 820
     },
     "5": {
      "nowcast": 3,
@@ -43,7 +43,7 @@
     "1": {
      "nowcast": 6,
      "persistenza": 5,
-     "casi": 823
+     "casi": 824
     },
     "5": {
      "nowcast": 1,
@@ -69,7 +69,7 @@
     "1": {
      "nowcast": 21,
      "persistenza": 17,
-     "casi": 3446
+     "casi": 3448
     },
     "5": {
      "nowcast": 12,
@@ -81,7 +81,7 @@
     "1": {
      "nowcast": 13,
      "persistenza": 11,
-     "casi": 3440
+     "casi": 3441
     },
     "5": {
      "nowcast": 6,
@@ -93,7 +93,7 @@
     "1": {
      "nowcast": 10,
      "persistenza": 8,
-     "casi": 3473
+     "casi": 3474
     },
     "5": {
      "nowcast": 4,
@@ -105,26 +105,26 @@
  },
  "abilita_componenti": {
   "30": {
-   "casi": 1374,
+   "casi": 1375,
    "estrapolazione": 0.629,
-   "casi_estrapolazione": 1374,
+   "casi_estrapolazione": 1375,
    "evoluzione": 0.622,
-   "casi_evoluzione": 1372,
+   "casi_evoluzione": 1373,
    "wrf": 0.044,
-   "casi_wrf": 1354,
+   "casi_wrf": 1355,
    "fusione": 0.616,
-   "casi_fusione": 1371
+   "casi_fusione": 1372
   },
   "60": {
-   "casi": 1255,
+   "casi": 1257,
    "estrapolazione": 0.366,
-   "casi_estrapolazione": 1255,
+   "casi_estrapolazione": 1257,
    "evoluzione": 0.362,
-   "casi_evoluzione": 1251,
-   "wrf": 0.003,
-   "casi_wrf": 1234,
+   "casi_evoluzione": 1253,
+   "wrf": 0.004,
+   "casi_wrf": 1236,
    "fusione": 0.33,
-   "casi_fusione": 1250
+   "casi_fusione": 1252
   },
   "120": {
    "casi": 1162,

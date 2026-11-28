@@ -1,19 +1,19 @@
-=== giro delle 19:57 UTC ===
-SRI: ultimo 2026-11-28T19:45Z, periodo 5 min, ne chiedo 25 ogni 5 min
+=== giro delle 20:07 UTC ===
+SRI: ultimo 2026-11-28T19:55Z, periodo 5 min, ne chiedo 25 ogni 5 min
   griglia: Trasversa di Mercatore lon0=12.5 lat0=42.0 k0=1.0, [1400, 1200], passo [1000.0, 1000.0], nodata None
   SRI: 25 su 25, ritaglio (750, 779), valori [0.0, 0.0, 74.58999633789062]
-IR_108: ultimo 2026-11-28T19:45Z, periodo 5 min, ne chiedo 31 ogni 5 min
+IR_108: ultimo 2026-11-28T19:55Z, periodo 5 min, ne chiedo 31 ogni 5 min
   griglia: Trasversa di Mercatore lon0=12.5 lat0=42.0 k0=1.0, [1400, 1200], passo [1000.0, 1000.0], nodata None
   IR_108: 31 su 31, ritaglio (410, 415), valori [-29.5, 5.0, 16.0]
-POH: ultimo 2026-11-28T19:50Z, periodo 5 min, ne chiedo 7 ogni 10 min
+POH: ultimo 2026-11-28T20:00Z, periodo 5 min, ne chiedo 7 ogni 10 min
   griglia: Trasversa di Mercatore lon0=12.5 lat0=42.0 k0=1.0, [1400, 1200], passo [1000.0, 1000.0], nodata None
   POH: 7 su 7, ritaglio (410, 415), valori [0.0, 0.0, 0.0]
 TEMP: ultimo 2026-11-28T19:00Z, periodo 60 min, ne chiedo 1 ogni 60 min
   griglia: geografica (lon/lat), [576, 631], passo [0.019983009747110096, 0.019983009747110096], nodata None
   TEMP: 1 su 1, ritaglio (186, 246), valori [-9.573589324951172, 0.0, 13.119111061096191]
-SRT1: ultimo 2026-11-28T19:45Z, periodo 5 min, ne chiedo 1 ogni 60 min
+SRT1: ultimo 2026-11-28T19:55Z, periodo 5 min, ne chiedo 1 ogni 60 min
   griglia: Trasversa di Mercatore lon0=12.5 lat0=42.0 k0=1.0, [1400, 1200], passo [1000.0, 1000.0], nodata None
-  SRT1: 1 su 1, ritaglio (410, 415), valori [0.0, 0.0, 2.8899998664855957]
+  SRT1: 1 su 1, ritaglio (410, 415), valori [0.0, 0.0, 2.804999828338623]
 CUM3: ultimo 2026-11-28T19:30Z, periodo 30 min, ne chiedo 1 ogni 60 min
   griglia: geografica (lon/lat), [1233, 1341], passo [0.01, 0.01], nodata -9999.0
   CUM3: 1 su 1, ritaglio (366, 486), valori [0.0, 0.0, 3.004999876022339]
@@ -26,48 +26,45 @@ CUM12: ultimo 2026-11-28T19:30Z, periodo 30 min, ne chiedo 1 ogni 60 min
 CUM24: ultimo 2026-11-28T19:30Z, periodo 30 min, ne chiedo 1 ogni 60 min
   griglia: geografica (lon/lat), [1233, 1341], passo [0.01, 0.01], nodata -9999.0
   CUM24: 1 su 1, ritaglio (366, 486), valori [0.0, 0.7141085267066956, 63.133628845214844]
-VMI: ultimo 2026-11-28T19:50Z, periodo 5 min, ne chiedo 1 ogni 5 min
+VMI: ultimo 2026-11-28T20:00Z, periodo 5 min, ne chiedo 1 ogni 5 min
   griglia: Trasversa di Mercatore lon0=12.5 lat0=42.0 k0=1.0, [1400, 1200], passo [1000.0, 1000.0], nodata None
   VMI: 1 su 1, ritaglio (410, 415), valori [-9999.0, -9998.0, 30.0]
-CAPPI_2: ultimo 2026-11-28T19:45Z, periodo 5 min, ne chiedo 1 ogni 5 min
+CAPPI_2: ultimo 2026-11-28T19:55Z, periodo 5 min, ne chiedo 1 ogni 5 min
   griglia: Trasversa di Mercatore lon0=12.5 lat0=42.0 k0=1.0, [1400, 1200], passo [1000.0, 1000.0], nodata None
-  CAPPI_2: 1 su 1, ritaglio (410, 415), valori [-9999.0, -9998.0, 22.5]
-CAPPI_5: ultimo 2026-11-28T19:45Z, periodo 5 min, ne chiedo 1 ogni 5 min
+  CAPPI_2: 1 su 1, ritaglio (410, 415), valori [-9999.0, -9998.0, 23.5]
+CAPPI_5: ultimo 2026-11-28T19:55Z, periodo 5 min, ne chiedo 1 ogni 5 min
   griglia: Trasversa di Mercatore lon0=12.5 lat0=42.0 k0=1.0, [1400, 1200], passo [1000.0, 1000.0], nodata None
-  CAPPI_5: 1 su 1, ritaglio (410, 415), valori [-9999.0, -9998.0, -9998.0]
-fatto in 33.5 s
+  CAPPI_5: 1 su 1, ritaglio (410, 415), valori [-9999.0, -9998.0, 10.0]
+fatto in 33.9 s
 WRF: corsa 2026-11-27 18 UTC, da 27 18:30 a 29 17:30 UTC
 {
- "t0": "2026-11-28T19:45Z",
+ "t0": "2026-11-28T19:55Z",
  "scatti_per_il_movimento": 4,
  "metodo": "due scale + WRF corretto punto per punto",
+ "movimento_sistema_scartato": true,
  "movimento": {
-  "pixel_pioggia": 4497,
-  "velocita_media_kmh": 20.9,
-  "direzione": 341
+  "pixel_pioggia": 4285,
+  "velocita_media_kmh": 19.9,
+  "direzione": 348
  },
- "movimento_sistema": {
-  "velocita_kmh": 22.8,
-  "direzione": 299
- },
- "vita_media_min": 89,
- "vita_celle_min": 28,
- "vita_sistema_min": 462,
- "correlazione_30min": 0.714,
+ "vita_media_min": 81,
+ "vita_celle_min": 30,
+ "vita_sistema_min": 221,
+ "correlazione_30min": 0.692,
  "wrf": {
   "usato": true,
   "corsa": "2026-11-27 18 UTC",
-  "abilita": 0.3,
+  "abilita": 0.29,
   "correzione_intensita": true,
-  "area_osservata": 0.026,
-  "area_modello": 0.018,
-  "correlazione_prima": 0.016,
-  "correlazione_dopo": 0.577,
-  "spostamento_medio_px": 66.2,
-  "spostamento_massimo_px": 71.2
+  "area_osservata": 0.023,
+  "area_modello": 0.019,
+  "correlazione_prima": 0.043,
+  "correlazione_dopo": 0.54,
+  "spostamento_medio_px": 60.8,
+  "spostamento_massimo_px": 66.7
  },
  "movimento_wrf_ore": 6,
- "peso_evoluzione_wrf": 0.58,
+ "peso_evoluzione_wrf": 0.54,
  "vento_wrf_usato": true,
  "evoluzione": {
   "passi_con_wrf": 36,
@@ -118,31 +115,31 @@ WRF: corsa 2026-11-27 18 UTC, da 27 18:30 a 29 17:30 UTC
   "wrf_totale"
  ]
 }
-confronti nuovi: 4, righe nello storico: 17468, file in archivio: 22
+confronti nuovi: 5, righe nello storico: 17473, file in archivio: 23
 Lazio: 860x845 px, radar 25, previsione 36
 Sabina: 860x863 px, radar 25, previsione 36
 Italia: 900x1040 px, radar 25, previsione 0
-ultime immagini EUMETView: {'ir': '2026-11-28T19:40Z', 'vis': '2026-11-28T19:40Z', 'geo': '2026-11-28T19:30Z', 'lampi': '2026-11-28T19:45Z', 'largo': '2026-11-28T19:40Z', 'it_ir': '2026-11-28T19:40Z', 'it_vis': '2026-11-28T19:40Z', 'it_geo': '2026-11-28T19:30Z', 'it_lampi': '2026-11-28T19:45Z'}
+ultime immagini EUMETView: {'ir': '2026-11-28T19:50Z', 'vis': '2026-11-28T19:50Z', 'geo': '2026-11-28T19:40Z', 'lampi': '2026-11-28T19:55Z', 'largo': '2026-11-28T19:50Z', 'it_ir': '2026-11-28T19:50Z', 'it_vis': '2026-11-28T19:50Z', 'it_geo': '2026-11-28T19:40Z', 'it_lampi': '2026-11-28T19:55Z'}
 immagini da scaricare: 7
-scaricate 7 su 7 in 3 s
-taratura infrarosso: {'fonte': 'infrarosso Protezione Civile', 'coppie': 15, 'grigio_min': 37, 'grigio_max': 90, 'temp_calda': 15.0, 'temp_fredda': -7.8}
+scaricate 7 su 7 in 8 s
+taratura infrarosso: {'fonte': 'infrarosso Protezione Civile', 'coppie': 15, 'grigio_min': 37, 'grigio_max': 90, 'temp_calda': 15.0, 'temp_fredda': -8.0}
 Lazio: satellite 15 istanti, disegnati ora 2
 Sabina: satellite 15 istanti, disegnati ora 2
 Italia: satellite 15 istanti, disegnati ora 2
-previsione nubi: {'ultimo_satellite': '2026-11-28T19:40Z', 'velocita_kmh': 3.2, 'direzione': 48, 'correlazione_30min': 0.816, 'vita_media_min': 147, 'wrf': {'usato': True, 'abilita': 0.12, 'nuvolosita_wrf': 0.15, 'nuvolosita_satellite': 0.06, 'spostamento_medio_km': 15.4, 'correlazione_prima': 0.061, 'correlazione_dopo': 0.188}, 'peso_evoluzione_wrf': 1.0, 'modalita': 'wrf_totale', 'evoluzione': {'passi_con_wrf': 36, 'passi_senza_wrf': 0}, 'zona_grande': {'usata': True, 'passo_km': 1.68, 'velocita_kmh': 10.3, 'direzione': 34}}
-gara nubi: 7 confronti nuovi
-Nerola: {'pioggia': 'Nessuna pioggia prevista a Nerola nelle prossime 6 ore', 'livello_pioggia': 'no', 'fulmini': "Fulmine piu' vicino: 381 km verso sud, 15 minuti fa", 'livello_fulmini': 'lontano', 'cielo': "Cielo sereno, poco nuvoloso tra un paio d'ore", 'copertura': 0.0, 'cape': 0, 'quota_neve': 1100, 'tipo_10min': [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], 'pioggia_10min': [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], 'nubi_10min': [0.0, 0.0, 0.0, 0.03, 0.03, 0.01, 0.0, 0.0, 0.08, 0.12, 0.14, 0.17, 0.16, 0.13, 0.08, 0.13, 0.1, 0.05, 0.05, 0.09, 0.13, 0.13, 0.1, 0.04, 0.01, 0.02, 0.03, 0.03, 0.04, 0.04, 0.03, 0.01, 0.01, 0.04, 0.02, 0.0, 0.0]}
-gara: 19:58
-gara pioggia: 8 confronti nuovi, metodi archiviati 16, in testa (7 giorni): Quella sul radar 25.6%, Il migliore a ogni scadenza 25.6%, Dal radar al WRF in 3 ore 25.0%
+previsione nubi: {'ultimo_satellite': '2026-11-28T19:50Z', 'velocita_kmh': 3.0, 'direzione': 32, 'correlazione_30min': 0.827, 'vita_media_min': 158, 'wrf': {'usato': True, 'abilita': 0.11, 'nuvolosita_wrf': 0.16, 'nuvolosita_satellite': 0.06, 'spostamento_medio_km': 14.6, 'correlazione_prima': 0.05, 'correlazione_dopo': 0.171}, 'peso_evoluzione_wrf': 1.0, 'modalita': 'wrf_totale', 'evoluzione': {'passi_con_wrf': 36, 'passi_senza_wrf': 0}, 'zona_grande': {'usata': True, 'passo_km': 1.68, 'velocita_kmh': 10.4, 'direzione': 30}}
+gara nubi: 5 confronti nuovi
+Nerola: {'pioggia': 'Nessuna pioggia prevista a Nerola nelle prossime 6 ore', 'livello_pioggia': 'no', 'fulmini': "Fulmine piu' vicino: 381 km verso sud, 25 minuti fa", 'livello_fulmini': 'lontano', 'cielo': "Cielo sereno, poco nuvoloso tra un paio d'ore", 'copertura': 0.0, 'cape': 0, 'quota_neve': 1100, 'tipo_10min': [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], 'pioggia_10min': [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], 'nubi_10min': [0.0, 0.01, 0.03, 0.04, 0.02, 0.04, 0.05, 0.06, 0.11, 0.2, 0.23, 0.23, 0.21, 0.15, 0.09, 0.07, 0.14, 0.13, 0.09, 0.09, 0.08, 0.1, 0.11, 0.07, 0.03, 0.01, 0.0, 0.01, 0.01, 0.03, 0.06, 0.08, 0.06, 0.02, 0.05, 0.1, 0.12]}
+gara: 20:08
+gara pioggia: 7 confronti nuovi, metodi archiviati 16, in testa (7 giorni): Quella sul radar 25.6%, Il migliore a ogni scadenza 25.6%, Dal radar al WRF in 3 ore 24.9%
 pubblicato: {"chiave": "per_scadenza", "nome": "Il migliore a ogni scadenza", "motivo": "il migliore a ogni scadenza: +60 min: Evoluzione senza dettagli imprevedibili 43% (contro 42%); +120 min: Radar guidato tutto dal WRF 25% (contro 22%); +180 min: Dal radar al WRF in 3 ore 18% (contro 14%); +240 min: Solo WRF corretto 16% (contro 11%); +300 min: Solo WRF corretto 16% (contro 9%); +360 min: Solo WRF corretto 16% (contro 7%)", "per_scadenza": {"30": "Radar che evolve col WRF", "60": "Evoluzione senza dettagli imprevedibili", "120": "Radar guidato tutto dal WRF", "180": "Dal radar al WRF in 3 ore", "240": "Solo WRF corretto", "300": "Solo WRF corretto", "360": "Solo WRF corretto"}}
 /home/runner/work/nowcasting-nerola/nowcasting-nerola/radar3d.py:48: RuntimeWarning: All-NaN slice encountered
   return np.nanmax(b, axis=(1, 3)) if modo == "max" else np.nanmean(b, axis=(1, 3))
 /home/runner/work/nowcasting-nerola/nowcasting-nerola/radar3d.py:123: RuntimeWarning: All-NaN slice encountered
   diag[tipo] = [round(float(np.nanmin(arr)), 1), round(float(np.nanmax(arr)), 1)]
-radar 3D: 10 quote su 10, 172x169 celle, 2022 con eco, valori {'CAPPI_1': [-17.5, 41.5], 'CAPPI_2': [-18.5, 44.5], 'CAPPI_3': [-16.0, 42.0], 'CAPPI_4': [-16.0, 38.5], 'CAPPI_5': [-16.0, 34.5], 'CAPPI_6': [-9.0, 30.5], 'CAPPI_7': [-10.5, 24.5], 'CAPPI_8': [-4.0, 14.0], 'CAPPI_9': [1.0, 8.0], 'CAPPI_10': [nan, nan]}
-radar nei punti: 0 ore nuove, 37056 righe, 192 punti
+radar 3D: 10 quote su 10, 172x169 celle, 1866 con eco, valori {'CAPPI_1': [-17.5, 41.5], 'CAPPI_2': [-17.0, 40.5], 'CAPPI_3': [-16.0, 40.5], 'CAPPI_4': [-10.5, 36.0], 'CAPPI_5': [-20.0, 35.0], 'CAPPI_6': [-13.5, 28.5], 'CAPPI_7': [-10.5, 22.0], 'CAPPI_8': [-4.0, 14.5], 'CAPPI_9': [1.5, 7.5], 'CAPPI_10': [nan, nan]}
+radar nei punti: 1 ore nuove, 37056 righe, 192 punti
 radar orario sulla griglia comune: 193 ore
 WRF nei punti: corsa 2026-11-27T18:00Z, 9216 righe
-stazione: {'ora': '2026-11-28T19:55Z', 'temperatura': 6.9, 'umidita': 69.0, 'intensita': 0.0, 'pioggia_oggi': 0.0, 'aggiornata': True}
+stazione: {'ora': '2026-11-28T20:05Z', 'temperatura': 6.9, 'umidita': 69.0, 'intensita': 0.0, 'pioggia_oggi': 0.0, 'aggiornata': True}
 nessuna allerta da mandare
-=== giro finito alle 19:59:14 UTC ===
+=== giro finito alle 20:09:20 UTC ===
