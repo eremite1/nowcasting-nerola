@@ -1,6 +1,6 @@
 {
- "aggiornata": "2026-11-28T17:40Z",
- "nuovi_confronti": 8,
+ "aggiornata": "2026-11-28T17:45Z",
+ "nuovi_confronti": 1,
  "periodi": {
   "7": {
    "30": {
@@ -31,7 +31,7 @@
     "1": {
      "nowcast": 8,
      "persistenza": 7,
-     "casi": 813
+     "casi": 812
     },
     "5": {
      "nowcast": 3,
